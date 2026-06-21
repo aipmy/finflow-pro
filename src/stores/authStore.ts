@@ -37,7 +37,10 @@ export const authStore = {
 
 export function useAuth() {
   const [, setTick] = useState(0);
-  useEffect(() => authStore.subscribe(() => setTick(t => t + 1)), []);
+  useEffect(() => {
+    const unsub = authStore.subscribe(() => setTick(t => t + 1));
+    return () => { unsub; };
+  }, []);
   return { user: authStore.user, login: authStore.login.bind(authStore), logout: authStore.logout.bind(authStore) };
 }
 
