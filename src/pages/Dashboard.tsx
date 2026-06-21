@@ -47,6 +47,15 @@ export default function Dashboard() {
 
   const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--info))", "hsl(var(--warning))", "hsl(var(--success))", "hsl(var(--destructive))", "hsl(var(--primary-glow))"];
 
+  const colorMap: Record<string, string> = {
+    primary: "bg-primary/10 text-primary",
+    success: "bg-success/10 text-success",
+    destructive: "bg-destructive/10 text-destructive",
+    info: "bg-info/10 text-info",
+    warning: "bg-warning/10 text-warning",
+    accent: "bg-accent/10 text-accent",
+  };
+
   const stats = [
     { label: "Total Pengajuan Bulan Ini", value: formatRupiah(total), icon: FileText, trend: "+12.4%", up: true, color: "primary" },
     { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "+8.2%", up: true, color: "success" },
@@ -66,7 +75,7 @@ export default function Dashboard() {
           <Card key={s.label} className="shadow-elegant hover:shadow-elevated transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center bg-${s.color}/10 text-${s.color}`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorMap[s.color]}`}>
                   <s.icon className="h-4 w-4" />
                 </div>
                 <span className={`text-[10px] font-medium flex items-center gap-0.5 ${s.up ? "text-success" : "text-muted-foreground"}`}>
