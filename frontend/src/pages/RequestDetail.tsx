@@ -200,8 +200,24 @@ export default function RequestDetail() {
     }
   };
 
+  const formatNumberWithDots = (num: number | string) => {
+    if (!num) return "";
+    const clean = String(num).replace(/[^0-9]/g, "");
+    if (!clean) return "";
+    return new Intl.NumberFormat("id-ID").format(parseInt(clean, 10));
+  };
+
   const handleItemAmountChange = (index: number, val: string) => {
-    setItemRealizations(prev => prev.map((item, idx) => idx === index ? { ...item, actualAmount: val } : item));
+    if (val === "") {
+      setItemRealizations(prev => prev.map((item, idx) => idx === index ? { ...item, actualAmount: "" } : item));
+      return;
+    }
+    const hasAlpha = /[a-zA-Z]/.test(val);
+    if (hasAlpha) {
+      toast.error("Harap masukkan input angka saja", { id: "actual-price-validation" });
+    }
+    const cleanVal = val.replace(/[^0-9]/g, "");
+    setItemRealizations(prev => prev.map((item, idx) => idx === index ? { ...item, actualAmount: cleanVal } : item));
   };
 
   const handleItemDescriptionChange = (index: number, val: string) => {
@@ -686,9 +702,9 @@ export default function RequestDetail() {
                               {/* Harga Real (input field) */}
                               <td className="p-3 min-w-[120px]">
                                 <Input
-                                  type="number"
+                                  type="text"
                                   className="h-8 text-xs font-semibold"
-                                  value={it.actualAmount}
+                                  value={formatNumberWithDots(it.actualAmount)}
                                   onChange={e => handleItemAmountChange(idx, e.target.value)}
                                   placeholder="Harga riil..."
                                 />

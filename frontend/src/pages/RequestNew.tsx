@@ -128,6 +128,27 @@ export default function RequestNew() {
     toast.success("Item diurutkan berdasarkan nama (A-Z)");
   };
 
+  const formatNumberWithDots = (num: number | string) => {
+    if (!num) return "";
+    const clean = String(num).replace(/[^0-9]/g, "");
+    if (!clean) return "";
+    return new Intl.NumberFormat("id-ID").format(parseInt(clean, 10));
+  };
+
+  const handlePriceChange = (index: number, rawVal: string) => {
+    if (rawVal === "") {
+      setItem(index, "price", 0);
+      return;
+    }
+    const hasAlpha = /[a-zA-Z]/.test(rawVal);
+    if (hasAlpha) {
+      toast.error("Harap masukkan input angka saja", { id: "price-validation-toast" });
+    }
+    const cleanVal = rawVal.replace(/[^0-9]/g, "");
+    const numericVal = parseInt(cleanVal, 10) || 0;
+    setItem(index, "price", numericVal);
+  };
+
   const submit = async (asDraft = false) => {
     if (!title || !dept || !site) {
       toast.error("Lengkapi data pengajuan");
@@ -328,7 +349,12 @@ export default function RequestNew() {
                 </div>
                 <div className="col-span-4 md:col-span-2">
                   <Label className="text-xs">Harga</Label>
-                  <Input className="mt-1" type="number" value={it.price} onChange={e => setItem(i, "price", +e.target.value)} />
+                  <Input
+                    className="mt-1"
+                    type="text"
+                    value={formatNumberWithDots(it.price)}
+                    onChange={e => handlePriceChange(i, e.target.value)}
+                  />
                 </div>
                 <div className="col-span-1 flex justify-end">
                   <Button size="icon" variant="ghost" className="h-9 w-9 text-destructive" onClick={() => setItems(items.filter((_, idx) => idx !== i))}>
