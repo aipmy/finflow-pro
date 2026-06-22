@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, FileText, Paperclip, CheckCircle2, XCircle, RotateCcw,
   Wallet, Clock, User, MapPin, Building2, Calendar, Download, Loader2,
-  Upload, ImageIcon, ShieldCheck, AlertTriangle, Eye, FileSpreadsheet
+  Upload, ImageIcon, ShieldCheck, AlertTriangle, Eye, FileSpreadsheet, ArrowUpDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect, useRef } from "react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "@/components/ui/select";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { formatRupiah, formatDateTime, formatDate } from "@/utils/format";
 import { useAuth, can } from "@/stores/authStore";
@@ -66,6 +69,25 @@ export default function RequestDetail() {
  
   // Image preview state
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // Item sorting states
+  const [itemSortBy, setItemSortBy] = useState<"name" | "createdAt">("name");
+  const [itemSortOrder, setItemSortOrder] = useState<"asc" | "desc">("asc");
+
+  const sortedItems = useMemo(() => {
+    if (!r || !r.items) return [];
+    return [...r.items].sort((a, b) => {
+      if (itemSortBy === "name") {
+        const valA = (a.name || "").toLowerCase();
+        const valB = (b.name || "").toLowerCase();
+        return itemSortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      } else {
+        const valA = new Date(a.createdAt || 0).getTime();
+        const valB = new Date(b.createdAt || 0).getTime();
+        return itemSortOrder === "asc" ? valA - valB : valB - valA;
+      }
+    });
+  }, [r?.items, itemSortBy, itemSortOrder]);
  
   const totalSpentAmount = itemRealizations.reduce((acc, it) => acc + (parseFloat(it.actualAmount) || 0), 0);
 
@@ -458,7 +480,24 @@ export default function RequestDetail() {
 
           {/* Items */}
           <Card className="shadow-elegant">
-            <CardHeader className="pb-2"><CardTitle className="text-base">Detail Item</CardTitle></CardHeader>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Detail Item</CardTitle>
+              <div className="flex items-center gap-2">
+                <Select value={`${itemSortBy}-${itemSortOrder}`} onValueChange={val => {
+                  const [field, order] = val.split("-");
+                  setItemSortBy(field as any);
+                  setItemSortOrder(order as any);
+                }}>
+                  <SelectTrigger className="h-7 text-xs w-[180px]"><SelectValue placeholder="Urutkan Item" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name-asc">Nama Item (A-Z)</SelectItem>
+                    <SelectItem value="name-desc">Nama Item (Z-A)</SelectItem>
+                    <SelectItem value="createdAt-asc">Waktu Input (Terlama)</SelectItem>
+                    <SelectItem value="createdAt-desc">Waktu Input (Terbaru)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -471,7 +510,7 @@ export default function RequestDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {r.items && r.items.map((it: any, i: number) => (
+                    {sortedItems.map((it: any, i: number) => (
                       <tr key={i} className="border-b border-border last:border-0">
                         <td className="py-2.5">
                           <div className="font-medium text-sm">{it.name}</div>
