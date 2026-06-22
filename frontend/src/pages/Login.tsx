@@ -108,16 +108,42 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <div className="absolute top-4 right-4 z-10"><ThemeToggle /></div>
+    <div className="min-h-screen flex bg-background relative overflow-hidden">
+      <style>{`
+        @keyframes float-slow {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-15px) scale(1.05); }
+        }
+        @keyframes float-reverse {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(15px) scale(0.95); }
+        }
+        .animate-float-1 {
+          animation: float-slow 8s ease-in-out infinite;
+        }
+        .animate-float-2 {
+          animation: float-reverse 10s ease-in-out infinite;
+        }
+        .perspective-1000 {
+          perspective: 1000px;
+        }
+        .rotate-y-hover {
+          transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .rotate-y-hover:hover {
+          transform: rotateY(12deg) rotateX(8deg) translateZ(10px);
+        }
+      `}</style>
+
+      <div className="absolute top-4 right-4 z-20"><ThemeToggle /></div>
 
       {/* Left Brand Panel */}
       <div className="hidden lg:flex w-1/2 gradient-primary text-primary-foreground p-12 flex-col justify-between relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-10 bottom-10 w-72 h-72 rounded-full bg-accent/30 blur-3xl" />
+        <div className="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-white/10 blur-3xl animate-float-1" />
+        <div className="absolute -left-10 bottom-10 w-72 h-72 rounded-full bg-accent/30 blur-3xl animate-float-2" />
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-bold text-2xl">F</div>
+            <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-bold text-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/20 transition-all duration-700 hover:rotate-[360deg] cursor-pointer">F</div>
             <div>
               <div className="font-bold text-xl tracking-tight">Finance Radar</div>
               <div className="text-xs opacity-80 uppercase tracking-widest">Internal Finance Suite</div>
@@ -131,14 +157,14 @@ export default function Login() {
           <p className="text-primary-foreground/80 text-lg leading-relaxed max-w-md">
             Pengajuan, approval bertingkat, realisasi, inventaris, petty cash, dan audit trail dalam satu sistem terpadu.
           </p>
-          <div className="grid grid-cols-2 gap-4 pt-4 max-w-md">
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/15">
-              <Building2 className="h-5 w-5 mb-2" />
+          <div className="grid grid-cols-2 gap-4 pt-4 max-w-md perspective-1000">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rotate-y-hover cursor-pointer">
+              <Building2 className="h-5 w-5 mb-2 text-accent-foreground" />
               <div className="text-sm font-semibold">Multi-site</div>
               <div className="text-xs opacity-75">Operasional lintas lokasi</div>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/15">
-              <ShieldCheck className="h-5 w-5 mb-2" />
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rotate-y-hover cursor-pointer">
+              <ShieldCheck className="h-5 w-5 mb-2 text-accent-foreground" />
               <div className="text-sm font-semibold">Audit Trail</div>
               <div className="text-xs opacity-75">Setiap aksi tercatat</div>
             </div>
@@ -148,8 +174,8 @@ export default function Login() {
       </div>
 
       {/* Right Form Panel */}
-      <div className="flex-1 flex items-center justify-center p-6 md:p-12 overflow-y-auto">
-        <div className="w-full max-w-md space-y-6 py-8">
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 overflow-y-auto bg-gradient-to-br from-background via-background to-muted/20">
+        <div className="w-full max-w-md space-y-6 py-8 px-6 sm:px-8 bg-card/60 backdrop-blur-md rounded-2xl border border-border/80 shadow-[0_12px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-500">
           <div className="lg:hidden flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center font-bold text-primary-foreground">F</div>
             <div>
@@ -180,7 +206,7 @@ export default function Login() {
                     placeholder="Contoh: Andi Wibowo"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-1.5"
+                    className="mt-1.5 transition-all duration-300 focus:scale-[1.01]"
                     disabled={isLoading}
                   />
                 </div>
@@ -194,7 +220,7 @@ export default function Login() {
                     placeholder="Contoh: superadmin"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="mt-1.5"
+                    className="mt-1.5 transition-all duration-300 focus:scale-[1.01]"
                     disabled={isLoading}
                   />
                 </div>
@@ -208,7 +234,7 @@ export default function Login() {
                     placeholder="admin@company.id"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1.5"
+                    className="mt-1.5 transition-all duration-300 focus:scale-[1.01]"
                     disabled={isLoading}
                   />
                 </div>
@@ -227,7 +253,7 @@ export default function Login() {
                       onBlur={() => {
                         if (pw.length === 0 && confirmPw.length === 0) setShowChecklist(false);
                       }}
-                      className="pr-10"
+                      className="pr-10 transition-all duration-300 focus:scale-[1.01]"
                       disabled={isLoading}
                     />
                     <button
@@ -254,7 +280,7 @@ export default function Login() {
                       onBlur={() => {
                         if (pw.length === 0 && confirmPw.length === 0) setShowChecklist(false);
                       }}
-                      className="pr-10"
+                      className="pr-10 transition-all duration-300 focus:scale-[1.01]"
                       disabled={isLoading}
                     />
                     <button
@@ -284,7 +310,7 @@ export default function Login() {
                 <Button
                   type="submit"
                   disabled={!canSubmitSetup || isLoading}
-                  className="w-full gradient-primary text-primary-foreground hover:opacity-95 shadow-glow pt-2.5 pb-2.5"
+                  className="w-full gradient-primary text-primary-foreground hover:opacity-95 shadow-glow pt-2.5 pb-2.5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   {isLoading ? (
                     <>
@@ -301,7 +327,7 @@ export default function Login() {
             // Standard User Login Screen
             <div>
               <div className="flex items-center gap-2 mb-2 text-primary">
-                <LogIn className="h-5 w-5" />
+                <LogIn className="h-5 w-5 animate-pulse" />
                 <span className="text-xs font-semibold uppercase tracking-wider">Akses Masuk</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight mb-1">Masuk ke akun Anda</h2>
@@ -316,7 +342,7 @@ export default function Login() {
                     placeholder="nama@company.id atau username"
                     value={emailOrUsername}
                     onChange={(e) => setEmailOrUsername(e.target.value)}
-                    className="mt-1.5"
+                    className="mt-1.5 transition-all duration-300 focus:scale-[1.01]"
                     disabled={isLoading}
                   />
                 </div>
@@ -329,7 +355,7 @@ export default function Login() {
                       placeholder="••••••••"
                       value={pw}
                       onChange={(e) => setPw(e.target.value)}
-                      className="pr-10"
+                      className="pr-10 transition-all duration-300 focus:scale-[1.01]"
                       disabled={isLoading}
                     />
                     <button
@@ -344,7 +370,7 @@ export default function Login() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full gradient-primary text-primary-foreground hover:opacity-95 shadow-glow"
+                  className="w-full gradient-primary text-primary-foreground hover:opacity-95 shadow-glow transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   {isLoading ? (
                     <>
