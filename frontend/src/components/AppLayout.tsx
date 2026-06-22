@@ -13,20 +13,43 @@ import { departments } from "@/data/mockData";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 
-const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, perm: "" },
-  { to: "/requests", label: "Pengajuan", icon: FileText, perm: "" },
-  { to: "/approvals", label: "Approval", icon: CheckSquare, perm: "request.approve" },
-  { to: "/inventory", label: "Stok Barang", icon: Package, perm: "" },
-  { to: "/finance", label: "Realisasi Finance", icon: Wallet, perm: "finance.realize" },
-  { to: "/petty-cash", label: "Petty Cash", icon: Coins, perm: "" },
-  { to: "/reports", label: "Laporan", icon: BarChart3, perm: "reports.view" },
-  { to: "/audit", label: "Audit Trail", icon: History, perm: "audit.view" },
-  { to: "/users", label: "Pengguna", icon: Users, perm: "users.manage" },
-  { to: "/settings", label: "Pengaturan", icon: Settings, perm: "" },
+const navGroups = [
+  {
+    title: "Utama",
+    items: [
+      { to: "/", label: "Dashboard", icon: LayoutDashboard, perm: "" },
+      { to: "/requests", label: "Pengajuan", icon: FileText, perm: "" },
+      { to: "/approvals", label: "Approval", icon: CheckSquare, perm: "request.approve" },
+    ]
+  },
+  {
+    title: "Keuangan & Transaksi",
+    items: [
+      { to: "/finance", label: "Realisasi Finance", icon: Wallet, perm: "finance.realize" },
+      { to: "/petty-cash", label: "Petty Cash", icon: Coins, perm: "" },
+    ]
+  },
+  {
+    title: "Gudang & Logistik",
+    items: [
+      { to: "/inventory", label: "Stok Barang", icon: Package, perm: "" },
+    ]
+  },
+  {
+    title: "Analisis & Audit",
+    items: [
+      { to: "/reports", label: "Laporan", icon: BarChart3, perm: "reports.view" },
+      { to: "/audit", label: "Audit Trail", icon: History, perm: "audit.view" },
+    ]
+  },
+  {
+    title: "Manajemen & Sistem",
+    items: [
+      { to: "/users", label: "Pengguna", icon: Users, perm: "users.manage" },
+      { to: "/settings", label: "Pengaturan", icon: Settings, perm: "" },
+    ]
+  }
 ];
-
-const mobileNav = nav.slice(0, 5);
 
 const SIDEBAR_KEY = "finflow:sidebar_collapsed";
 
@@ -62,7 +85,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecialChar;
   const canSubmitChangePw = isPasswordValid && passwordsMatch && currentPw;
 
-  const items = nav.filter(n => !n.perm || can(user?.role, n.perm));
+  const groups = navGroups.map(group => ({
+    ...group,
+    items: group.items.filter(n => !n.perm || can(user?.role, n.perm))
+  })).filter(group => group.items.length > 0);
+
+  const flatItems = groups.flatMap(g => g.items);
+  const mobileBottomNavItems = flatItems.slice(0, 5);
 
   const handleLogout = () => { logout(); nav2("/login"); };
 
@@ -102,6 +131,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         "hidden lg:flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border fixed inset-y-0 left-0 z-30 transition-all duration-200 ease-in-out",
         sidebarWidth
       )}>
+        {/* Floating minimize toggle button */}
+        <button
+          onClick={toggleCollapsed}
+          className="absolute -right-3 top-[20px] z-50 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm hover:bg-sidebar-accent hover:text-sidebar-primary transition-all duration-200"
+          title={collapsed ? "Perluas sidebar" : "Kecilkan sidebar"}
+        >
+          {collapsed ? <ChevronsRight className="h-3.5 w-3.5" /> : <ChevronsLeft className="h-3.5 w-3.5" />}
+        </button>
+
         <div className={cn("h-16 flex items-center border-b border-sidebar-border", collapsed ? "justify-center px-2" : "gap-3 px-5")}>
           <div className="w-9 h-9 rounded-lg gradient-primary flex items-center justify-center font-bold text-primary-foreground shadow-glow flex-shrink-0">
             <Radar className="h-5 w-5 animate-pulse" />
@@ -114,34 +152,34 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
         <nav className={cn("flex-1 py-4 overflow-y-auto scrollbar-thin", collapsed ? "px-2" : "px-3")}>
-          {items.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.to === "/"}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) => cn(
-                "flex items-center rounded-md text-sm mb-0.5 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
-                collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-              )}>
-              <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
-              {!collapsed && <span>{item.label}</span>}
-            </NavLink>
+          {groups.map((group, groupIdx) => (
+            <div key={group.title} className={cn("mb-4", groupIdx > 0 && "mt-2")}>
+              {!collapsed ? (
+                <div className="px-3 mb-1.5 text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
+                  {group.title}
+                </div>
+              ) : (
+                groupIdx > 0 && <div className="h-px bg-sidebar-border/60 my-2 mx-1" />
+              )}
+              <div className="space-y-0.5">
+                {group.items.map(item => (
+                  <NavLink key={item.to} to={item.to} end={item.to === "/"}
+                    title={collapsed ? item.label : undefined}
+                    className={({ isActive }) => cn(
+                      "flex items-center rounded-md text-sm mb-0.5 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
+                      collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-primary font-medium"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                    )}>
+                    <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                    {!collapsed && <span>{item.label}</span>}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
-        {/* Collapse toggle at bottom */}
-        <div className={cn("border-t border-sidebar-border", collapsed ? "px-2 py-2" : "px-3 py-2")}>
-          <button
-            onClick={toggleCollapsed}
-            className={cn(
-              "flex items-center rounded-md text-sm transition-colors text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground w-full",
-              collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2"
-            )}
-            title={collapsed ? "Perluas sidebar" : "Kecilkan sidebar"}
-          >
-            {collapsed ? <ChevronsRight className="h-4 w-4" /> : <><ChevronsLeft className="h-4 w-4" /><span>Kecilkan</span></>}
-          </button>
-        </div>
       </aside>
 
       {/* Mobile drawer */}
@@ -159,14 +197,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Button variant="ghost" size="icon" className="text-sidebar-foreground" onClick={() => setOpen(false)}><X className="h-4 w-4" /></Button>
             </div>
             <nav className="flex-1 px-3 py-4 overflow-y-auto">
-              {items.map(item => (
-                <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={() => setOpen(false)}
-                  className={({ isActive }) => cn(
-                    "flex items-center gap-3 px-3 py-3 rounded-md text-sm mb-1 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
-                    isActive ? "bg-sidebar-accent text-sidebar-primary font-medium" : "text-sidebar-foreground/80"
-                  )}>
-                  <item.icon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />{item.label}
-                </NavLink>
+              {groups.map((group, groupIdx) => (
+                <div key={group.title} className={cn("mb-4", groupIdx > 0 && "mt-2")}>
+                  <div className="px-3 mb-1.5 text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
+                    {group.title}
+                  </div>
+                  <div className="space-y-0.5">
+                    {group.items.map(item => (
+                      <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={() => setOpen(false)}
+                        className={({ isActive }) => cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm mb-0.5 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
+                          isActive ? "bg-sidebar-accent text-sidebar-primary font-medium" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                        )}>
+                        <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
           </aside>
@@ -181,7 +229,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></Button>
             <div>
               <h1 className="text-sm lg:text-base font-semibold tracking-tight">
-                {nav.find(n => n.to === loc.pathname || (n.to !== "/" && loc.pathname.startsWith(n.to)))?.label || "Dashboard"}
+                {flatItems.find(n => n.to === loc.pathname || (n.to !== "/" && loc.pathname.startsWith(n.to)))?.label || "Dashboard"}
               </h1>
               <p className="text-[11px] text-muted-foreground hidden sm:block">Sistem kontrol keuangan internal</p>
             </div>
@@ -239,7 +287,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Mobile bottom nav */}
         <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border z-30">
           <div className="grid grid-cols-5">
-            {mobileNav.map(item => (
+            {mobileBottomNavItems.map(item => (
               <NavLink key={item.to} to={item.to} end={item.to === "/"}
                 className={({ isActive }) => cn(
                   "flex flex-col items-center justify-center py-2.5 gap-1 text-[10px]",
