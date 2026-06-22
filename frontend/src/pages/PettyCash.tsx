@@ -186,7 +186,7 @@ export default function PettyCash() {
             <Button size="sm" className="gradient-primary text-primary-foreground" onClick={() => {
               setEditingTxId(null);
               setExistingReceiptUrl("");
-              setAmount(null || "");
+              setAmount("");
               setDesc("");
               setTxType("OUT");
               setSelectedCategory("");
