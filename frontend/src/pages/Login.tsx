@@ -118,6 +118,12 @@ export default function Login() {
           0%, 100% { transform: translateY(0px) scale(1); }
           50% { transform: translateY(15px) scale(0.95); }
         }
+        @keyframes float-up {
+          0% { transform: translateY(10px) scale(0.5); opacity: 0; }
+          20% { opacity: 1; }
+          80% { opacity: 0.8; }
+          100% { transform: translateY(-30px) scale(1.2); opacity: 0; }
+        }
         .animate-float-1 {
           animation: float-slow 8s ease-in-out infinite;
         }
@@ -143,7 +149,22 @@ export default function Login() {
         <div className="absolute -left-10 bottom-10 w-72 h-72 rounded-full bg-accent/30 blur-3xl animate-float-2" />
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-bold text-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-white/20 transition-all duration-700 hover:rotate-[360deg] cursor-pointer">F</div>
+            <div className="relative w-14 h-14 rounded-2xl bg-slate-950/80 overflow-hidden flex items-center justify-center border border-[#00ff66]/20 shadow-[0_8px_32px_rgba(0,255,102,0.15)] transition-all duration-500 hover:scale-110 hover:border-[#00ff66]/40 cursor-pointer group">
+              {/* Radar Grid Background */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#00ff6608_1px,transparent_1px),linear-gradient(to_bottom,#00ff6608_1px,transparent_1px)] bg-[size:8px_8px] opacity-60" />
+              {/* Radar Circles */}
+              <div className="absolute w-10 h-10 rounded-full border border-[#00ff66]/10 animate-ping [animation-duration:4s]" />
+              <div className="absolute w-6 h-6 rounded-full border border-[#00ff66]/15" />
+              {/* Radar Sweep Line */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-[#00ff66]/20 to-transparent rounded-full animate-spin [animation-duration:2.5s]" />
+              {/* Blip Ping */}
+              <div className="absolute w-1.5 h-1.5 rounded-full bg-[#00ff66] shadow-[0_0_10px_#00ff66] animate-pulse" style={{ top: '25%', left: '30%' }} />
+              {/* Floating Money symbols */}
+              <span className="absolute text-[10px] text-emerald-400 z-10 select-none animate-[float-up_3s_infinite_linear]" style={{ left: '15%', bottom: '5px' }}>$</span>
+              <span className="absolute text-[8px] text-yellow-400 z-10 select-none animate-[float-up_4s_infinite_linear]" style={{ right: '15%', bottom: '5px', animationDelay: '1.5s' }}>🪙</span>
+              
+              <Radar className="h-6 w-6 text-[#00ff66] relative z-10 transition-transform duration-500 group-hover:scale-110" />
+            </div>
             <div>
               <div className="font-bold text-xl tracking-tight">Finance Radar</div>
               <div className="text-xs opacity-80 uppercase tracking-widest">Internal Finance Suite</div>
@@ -177,7 +198,16 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-6 md:p-12 overflow-y-auto bg-gradient-to-br from-background via-background to-muted/20">
         <div className="w-full max-w-md space-y-6 py-8 px-6 sm:px-8 bg-card/60 backdrop-blur-md rounded-2xl border border-border/80 shadow-[0_12px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-500">
           <div className="lg:hidden flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center font-bold text-primary-foreground">F</div>
+            <div className="relative w-10 h-10 rounded-xl bg-slate-950/90 overflow-hidden flex items-center justify-center border border-[#00ff66]/20 shadow-[0_4px_16px_rgba(0,255,102,0.1)] group transition-all duration-300 hover:scale-105">
+              {/* Radar Grid Background */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#00ff6608_1px,transparent_1px),linear-gradient(to_bottom,#00ff6608_1px,transparent_1px)] bg-[size:6px_6px] opacity-50" />
+              {/* Radar Sweep Line */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-[#00ff66]/20 to-transparent rounded-full animate-spin [animation-duration:3s]" />
+              {/* Floating Money symbols */}
+              <span className="absolute text-[8px] text-emerald-400 z-10 select-none animate-[float-up_3s_infinite_linear]" style={{ left: '15%', bottom: '2px' }}>$</span>
+              
+              <Radar className="h-5 w-5 text-[#00ff66] relative z-10 transition-transform duration-500 group-hover:scale-110" />
+            </div>
             <div>
               <div className="font-bold tracking-tight">Finance Radar</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Internal Finance</div>

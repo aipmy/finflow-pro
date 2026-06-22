@@ -141,8 +141,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </button>
 
         <div className={cn("h-16 flex items-center border-b border-sidebar-border", collapsed ? "justify-center px-2" : "gap-3 px-5")}>
-          <div className="w-9 h-9 rounded-lg gradient-primary flex items-center justify-center font-bold text-primary-foreground shadow-glow flex-shrink-0">
-            <Radar className="h-5 w-5 animate-pulse" />
+          <div className="relative w-10 h-10 rounded-xl bg-slate-950/90 overflow-hidden flex items-center justify-center border border-[#00ff66]/20 shadow-[0_4px_16px_rgba(0,255,102,0.1)] flex-shrink-0 group cursor-pointer transition-all duration-300 hover:scale-105">
+            <style>{`
+              @keyframes float-up-sm {
+                0% { transform: translateY(6px) scale(0.6); opacity: 0; }
+                20% { opacity: 1; }
+                80% { opacity: 0.8; }
+                100% { transform: translateY(-16px) scale(1.1); opacity: 0; }
+              }
+            `}</style>
+            {/* Radar Grid Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#00ff6608_1px,transparent_1px),linear-gradient(to_bottom,#00ff6608_1px,transparent_1px)] bg-[size:6px_6px] opacity-50" />
+            {/* Radar Circles */}
+            <div className="absolute w-8 h-8 rounded-full border border-[#00ff66]/10 animate-ping [animation-duration:3s]" />
+            {/* Radar Sweep Line */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-[#00ff66]/20 to-transparent rounded-full animate-spin [animation-duration:3s]" />
+            {/* Floating Money symbols */}
+            <span className="absolute text-[8px] text-emerald-400 z-10 select-none animate-[float-up-sm_2.5s_infinite_linear]" style={{ left: '15%', bottom: '2px' }}>$</span>
+            <span className="absolute text-[7px] text-yellow-400 z-10 select-none animate-[float-up-sm_3.5s_infinite_linear]" style={{ right: '15%', bottom: '2px', animationDelay: '1.2s' }}>🪙</span>
+            
+            <Radar className="h-5 w-5 text-[#00ff66] relative z-10 transition-transform duration-500 group-hover:scale-110" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
@@ -189,8 +207,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <aside className="relative w-72 bg-sidebar text-sidebar-foreground flex flex-col animate-fade-in">
             <div className="h-16 flex items-center justify-between px-5 border-b border-sidebar-border">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center font-bold text-primary-foreground">
-                  <Radar className="h-4 w-4 animate-pulse" />
+                <div className="relative w-8 h-8 rounded-lg bg-slate-950/90 overflow-hidden flex items-center justify-center border border-[#00ff66]/20 shadow-[0_4px_12px_rgba(0,255,102,0.1)] flex-shrink-0">
+                  {/* Radar Grid Background */}
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#00ff6608_1px,transparent_1px),linear-gradient(to_bottom,#00ff6608_1px,transparent_1px)] bg-[size:4px_4px] opacity-40" />
+                  {/* Radar Sweep Line */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-[#00ff66]/20 to-transparent rounded-full animate-spin [animation-duration:3s]" />
+                  {/* Floating Money symbols */}
+                  <span className="absolute text-[7px] text-emerald-400 z-10 select-none animate-[float-up-sm_2.5s_infinite_linear]" style={{ left: '15%', bottom: '1px' }}>$</span>
+                  
+                  <Radar className="h-4 w-4 text-[#00ff66] relative z-10" />
                 </div>
                 <span className="font-bold text-sm">Finance Radar</span>
               </div>
