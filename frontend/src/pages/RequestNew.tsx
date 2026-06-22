@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Minus, Trash2, Upload, Save, Send, Loader2, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Trash2, Upload, Save, Send, Loader2, Calendar, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,7 +63,10 @@ export default function RequestNew() {
           if (r.departureDate) setDepartureDate(r.departureDate.substring(0, 10));
           if (r.returnDate) setReturnDate(r.returnDate.substring(0, 10));
           if (r.items && r.items.length > 0) {
-            setItems(r.items.map((it: any) => ({
+            const sortedItems = [...r.items].sort((a: any, b: any) =>
+              (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
+            );
+            setItems(sortedItems.map((it: any) => ({
               name: it.name,
               qty: it.qty,
               unitId: it.unitId || "",
@@ -109,6 +112,13 @@ export default function RequestNew() {
     const dinasCat = type === "PERJALANAN_DINAS" ? categories.find(c => c.name.toLowerCase() === "perjalanan dinas") : null;
     const defaultCatId = dinasCat ? dinasCat.id : (categories.length > 0 ? categories[0].id : "");
     setItems([...items, { name: "", qty: 1, unitId: defaultUnitId, categoryId: defaultCatId, price: 0 }]);
+  };
+
+  const handleSortItems = () => {
+    setItems(prev => [...prev].sort((a, b) =>
+      (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
+    ));
+    toast.success("Item diurutkan berdasarkan nama (A-Z)");
   };
 
   const submit = async (asDraft = false) => {
@@ -266,9 +276,14 @@ export default function RequestNew() {
         <Card className={`shadow-elegant ${step !== 2 ? "md:block hidden" : ""}`}>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">2. Detail Item</CardTitle>
-            <Button size="sm" variant="outline" onClick={handleAddItem}>
-              <Plus className="h-3.5 w-3.5 mr-1" />Tambah
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={handleSortItems} type="button">
+                <ArrowUpDown className="h-3.5 w-3.5 mr-1" />Urutkan A-Z
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleAddItem} type="button">
+                <Plus className="h-3.5 w-3.5 mr-1" />Tambah
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {items.map((it, i) => (
