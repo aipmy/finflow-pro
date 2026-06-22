@@ -16,6 +16,18 @@ const clearTokens = () => {
   localStorage.removeItem("finflow:user");
 };
 
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+const addRefreshSubscriber = (callback: (token: string) => void) => {
+  refreshSubscribers.push(callback);
+};
+
+const onTokenRefreshed = (accessToken: string) => {
+  refreshSubscribers.forEach(callback => callback(accessToken));
+  refreshSubscribers = [];
+};
+
 // Base fetch wrapper
 async function request(url: string, options: RequestInit = {}): Promise<any> {
   const headers = new Headers(options.headers || {});
@@ -35,42 +47,52 @@ async function request(url: string, options: RequestInit = {}): Promise<any> {
   });
 
   if (response.status === 401) {
-    // Attempt Token Refresh
     const refreshTok = getRefreshToken();
-    if (refreshTok) {
-      try {
-        const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: refreshTok })
-        });
-        
+    if (!refreshTok) {
+      clearTokens();
+      throw { status: 401, message: "Unauthorized access" };
+    }
+
+    if (!isRefreshing) {
+      isRefreshing = true;
+      fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: refreshTok })
+      }).then(async (refreshResponse) => {
+        isRefreshing = false;
         if (refreshResponse.ok) {
           const data = await refreshResponse.json();
           setTokens(data.accessToken, data.refreshToken, data.user);
-          
-          // Retry the original request
-          headers.set("Authorization", `Bearer ${data.accessToken}`);
-          const retryResponse = await fetch(`${API_BASE}${url}`, {
-            ...options,
-            headers
-          });
-          
-          if (!retryResponse.ok) {
-            const errData = await retryResponse.json().catch(() => ({}));
-            throw { status: retryResponse.status, message: errData.error?.message || "Request failed" };
-          }
-          return retryResponse.json();
+          onTokenRefreshed(data.accessToken);
+        } else {
+          clearTokens();
+          window.location.href = "/login";
         }
-      } catch (err) {
+      }).catch(() => {
+        isRefreshing = false;
         clearTokens();
         window.location.href = "/login";
-        throw { status: 401, message: "Session expired, please log in again." };
-      }
+      });
     }
-    
-    clearTokens();
-    throw { status: 401, message: "Unauthorized access" };
+
+    // Return a promise that resolves with the retried request
+    return new Promise((resolve, reject) => {
+      addRefreshSubscriber((newToken) => {
+        headers.set("Authorization", `Bearer ${newToken}`);
+        fetch(`${API_BASE}${url}`, {
+          ...options,
+          headers
+        }).then(async (retryResponse) => {
+          if (!retryResponse.ok) {
+            const errData = await retryResponse.json().catch(() => ({}));
+            reject({ status: retryResponse.status, message: errData.error?.message || "Request failed" });
+          } else {
+            resolve(retryResponse.json());
+          }
+        }).catch(reject);
+      });
+    });
   }
 
   if (!response.ok) {
