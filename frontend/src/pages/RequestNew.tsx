@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Plus, Minus, Trash2, Upload, Save, Send, Loader2, Calendar, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,8 @@ export default function RequestNew() {
   const [units, setUnits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const itemsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -111,7 +113,12 @@ export default function RequestNew() {
     const defaultUnitId = units.length > 0 ? units[0].id : "";
     const dinasCat = type === "PERJALANAN_DINAS" ? categories.find(c => c.name.toLowerCase() === "perjalanan dinas") : null;
     const defaultCatId = dinasCat ? dinasCat.id : (categories.length > 0 ? categories[0].id : "");
-    setItems([...items, { name: "", qty: 1, unitId: defaultUnitId, categoryId: defaultCatId, price: 0 }]);
+    setItems(prev => [...prev, { name: "", qty: 1, unitId: defaultUnitId, categoryId: defaultCatId, price: 0 }]);
+    
+    // Auto-scroll to newly added item
+    setTimeout(() => {
+      itemsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
   };
 
   const handleSortItems = () => {
@@ -330,6 +337,23 @@ export default function RequestNew() {
                 </div>
               </div>
             ))}
+            
+            {/* Element target scroll */}
+            <div ref={itemsEndRef} className="h-2" />
+
+            {/* Tombol Tambah di bagian bawah list */}
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto border-dashed hover:border-primary/50"
+                onClick={handleAddItem}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />Tambah Item Baru
+              </Button>
+            </div>
+
             <div className="flex items-center justify-between pt-3 border-t border-border">
               <span className="text-sm text-muted-foreground">Total</span>
               <span className="text-xl font-bold text-primary">{formatRupiah(total)}</span>
