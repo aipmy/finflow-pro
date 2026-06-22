@@ -53,3 +53,7 @@ After writing, confirm the file exists.
 When a workflow requires saving an artifact to `artifacts/superpowers/`, you MUST ensure the file exists on disk.
 Preferred method: use `python .agent/skills/superpowers-workflow/scripts/write_artifact.py --path <...>`.
 If you cannot execute commands, instruct the user to save the output manually.
+
+## 6) Frontend rebuild requirement
+Every time you modify any frontend files (under the `frontend/` directory), you MUST run `npm run build` in the `frontend/` directory to ensure that the latest static assets are generated and served by the backend server.
+

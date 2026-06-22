@@ -1,0 +1,343 @@
+datasource db {
+  provider = "mysql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  id              String           @id @default(uuid())
+  name            String           @unique // admin, finance, supervisor, manager, staff, auditor
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  name            String           @unique // e.g., "request:create", "request:approve", "inventory:read"
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Department {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  users     User[]
+  requests  Request[]
+
+  @@map("departments")
+}
+
+model Site {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  users           User[]
+  requests        Request[]
+  items           Item[]
+  inventoryStocks InventoryStock[]
+
+  @@map("sites")
+}
+
+model User {
+  id                 String              @id @default(uuid())
+  name               String
+  email              String              @unique
+  username           String              @unique
+  password           String
+  roleId             String
+  departmentId       String?
+  siteId             String?
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  role               Role                @relation(fields: [roleId], references: [id])
+  department         Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  site               Site?               @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  sessions           UserSession[]
+  requests           Request[]           @relation("UserRequests")
+  approvalLogs       ApprovalLog[]
+  inventoryMovements InventoryMovement[]
+  auditLogs          AuditLog[]
+  exportLogs         ExportLog[]
+  notifications      Notification[]
+  realizationProofs  RealizationProof[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique @db.VarChar(512)
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model ExpenseCategory {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  color        String        @default("primary")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  requests     Request[]
+  items        Item[]
+  requestItems RequestItem[]
+
+  @@map("expense_categories")
+}
+
+model Unit {
+  id           String        @id @default(uuid())
+  name         String        @unique // Pcs, Liter, Rim, Box, etc.
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  items        Item[]
+  requestItems RequestItem[]
+
+  @@map("units")
+}
+
+model Vendor {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  phone     String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  requests  Request[]
+
+  @@map("vendors")
+}
+
+model Item {
+  id                 String              @id @default(uuid())
+  name               String
+  sku                String              @unique
+  categoryId         String?
+  unitId             String?
+  stock              Int                 @default(0)
+  minStock           Int                 @default(0)
+  locationId         String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  category           ExpenseCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  unit               Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  location           Site?               @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  inventoryStocks    InventoryStock[]
+  inventoryMovements InventoryMovement[]
+  requestItems       RequestItem[]
+
+  @@map("items")
+}
+
+model InventoryStock {
+  id        String   @id @default(uuid())
+  itemId    String
+  siteId    String
+  quantity  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, siteId])
+  @@map("inventory_stocks")
+}
+
+model InventoryMovement {
+  id        String   @id @default(uuid())
+  itemId    String
+  type      String   // IN, OUT
+  quantity  Int
+  note      String?
+  actorId   String
+  createdAt DateTime @default(now())
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  actor     User     @relation(fields: [actorId], references: [id])
+
+  @@map("inventory_movements")
+}
+
+model Request {
+  id                 String              @id @default(uuid())
+  code               String              @unique // REQ-YYYY-XXXX
+  type               String              // PEMBELIAN, PETTY_CASH, REIMBURSE, PERJALANAN_DINAS, OPERASIONAL
+  title              String
+  description        String?             @db.Text
+  requesterId        String
+  departmentId       String
+  siteId             String
+  categoryId         String?
+  vendorId           String?
+  amount             Decimal             @db.Decimal(15, 2)
+  actualAmount       Decimal?            @db.Decimal(15, 2)
+  status             String              // DRAFT, SUBMITTED, NEED_REVISION, APPROVED_BY_SUPERVISOR, APPROVED_BY_FINANCE, REJECTED, PURCHASED, REALIZED, WAITING_VERIFICATION, CLOSED
+  departureDate      DateTime?
+  returnDate         DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  requester          User                @relation("UserRequests", fields: [requesterId], references: [id])
+  department         Department          @relation(fields: [departmentId], references: [id])
+  site               Site                @relation(fields: [siteId], references: [id])
+  category           ExpenseCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  vendor             Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  items              RequestItem[]
+  attachments         RequestAttachment[]
+  approvalLogs        ApprovalLog[]
+  financeRealization  FinanceRealization?
+  realizationProofs   RealizationProof[]
+
+  @@map("requests")
+}
+
+model RequestItem {
+  id                String             @id @default(uuid())
+  requestId         String
+  itemId            String?
+  name              String
+  qty               Int
+  unitId            String?
+  price             Decimal            @db.Decimal(15, 2)
+  categoryId        String?
+  request           Request            @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  item              Item?              @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  unit              Unit?              @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  category          ExpenseCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  realizationProofs RealizationProof[]
+
+  @@map("request_items")
+}
+
+model RequestAttachment {
+  id        String   @id @default(uuid())
+  requestId String
+  name      String
+  url       String
+  size      String?
+  createdAt DateTime @default(now())
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("request_attachments")
+}
+
+model ApprovalLog {
+  id        String   @id @default(uuid())
+  requestId String
+  actorId   String
+  action    String   // SUBMIT, APPROVE, REJECT, REVISE
+  note      String?  @db.Text
+  createdAt DateTime @default(now())
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor     User     @relation(fields: [actorId], references: [id])
+
+  @@map("approval_logs")
+}
+
+model FinanceRealization {
+  id             String   @id @default(uuid())
+  requestId      String   @unique
+  realizedAmount Decimal  @db.Decimal(15, 2)
+  receiptUrl     String?
+  status         String   // PENDING, PAID
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("finance_realizations")
+}
+
+model RealizationProof {
+  id            String       @id @default(uuid())
+  requestId     String
+  fileUrl       String
+  fileName      String
+  description   String?      @db.Text
+  uploadedById  String
+  requestItemId String?
+  isRefundProof Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  request       Request      @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploadedBy    User         @relation(fields: [uploadedById], references: [id])
+  requestItem   RequestItem? @relation(fields: [requestItemId], references: [id], onDelete: SetNull)
+
+  @@map("realization_proofs")
+}
+
+model PettyCashTransaction {
+  id             String   @id @default(uuid())
+  amount         Decimal  @db.Decimal(15, 2)
+  type           String   // IN, OUT
+  description    String
+  refRequestId   String?
+  createdAt      DateTime @default(now())
+
+  @@map("petty_cash_transactions")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  module    String   // e.g., REQUESTS, USERS, INVENTORY, FINANCE
+  action    String   // e.g., CREATE, UPDATE, DELETE, LOGIN, APPROVE
+  target    String?  // Target identifier
+  ipAddress String?
+  timestamp DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model ExportLog {
+  id        String   @id @default(uuid())
+  userId    String
+  module    String
+  format    String   // EXCEL, PDF, DOCX
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("export_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
