@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, CheckSquare, Package, Wallet,
   Coins, BarChart3, History, Users, Settings, LogOut, Menu, Plus, X,
-  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar, ChevronDown
+  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar, ChevronDown, RefreshCw
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -19,6 +19,7 @@ const navGroups = [
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard, perm: "" },
       { to: "/requests", label: "Pengajuan", icon: FileText, perm: "" },
+      { to: "/recurring-requests", label: "Pengajuan Rutin", icon: RefreshCw, perm: "" },
       { to: "/approvals", label: "Approval", icon: CheckSquare, perm: "request.approve" },
     ]
   },

@@ -17,6 +17,7 @@ import Reports from "./pages/Reports";
 import AuditTrail from "./pages/AuditTrail";
 import Users from "./pages/Users";
 import SettingsPage from "./pages/Settings";
+import RecurringRequests from "./pages/RecurringRequests";
 import NotFound from "./pages/NotFound";
 import { RequireAuth } from "./components/RequireAuth";
 
@@ -46,6 +47,7 @@ const App = () => {
             <Route path="/inventory" element={<RequireAuth><Inventory /></RequireAuth>} />
             <Route path="/finance" element={<RequireAuth><FinanceRealization /></RequireAuth>} />
             <Route path="/petty-cash" element={<RequireAuth><PettyCash /></RequireAuth>} />
+            <Route path="/recurring-requests" element={<RequireAuth><RecurringRequests /></RequireAuth>} />
             <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
             <Route path="/audit" element={<RequireAuth><AuditTrail /></RequireAuth>} />
             <Route path="/users" element={<RequireAuth><Users /></RequireAuth>} />

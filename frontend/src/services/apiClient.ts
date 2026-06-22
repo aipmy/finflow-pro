@@ -186,6 +186,36 @@ export const apiClient = {
       return response.blob();
     }
   },
+  recurringRequests: {
+    list: async () => {
+      return request("/recurring-requests");
+    },
+    get: async (id: string) => {
+      return request(`/recurring-requests/${id}`);
+    },
+    create: async (data: any) => {
+      return request("/recurring-requests", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+    },
+    update: async (id: string, data: any) => {
+      return request(`/recurring-requests/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+    },
+    delete: async (id: string) => {
+      return request(`/recurring-requests/${id}`, {
+        method: "DELETE"
+      });
+    },
+    trigger: async () => {
+      return request("/recurring-requests/trigger", {
+        method: "POST"
+      });
+    }
+  },
 
   inventory: {
     list: async (filters: any = {}) => {

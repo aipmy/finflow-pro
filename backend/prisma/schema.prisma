@@ -87,6 +87,7 @@ model User {
   exportLogs         ExportLog[]
   notifications      Notification[]
   realizationProofs  RealizationProof[]
+  recurringRequests  RecurringRequest[]
 
   @@map("users")
 }
@@ -342,3 +343,39 @@ model Notification {
 
   @@map("notifications")
 }
+
+model RecurringRequest {
+  id           String                 @id @default(uuid())
+  title        String
+  description  String?
+  type         String                 @default("OPERASIONAL") // PEMBELIAN, PETTY_CASH, REIMBURSE, etc.
+  amount       Decimal                @db.Decimal(15, 2) @default(0)
+  frequency    String                 @default("MONTHLY") // MONTHLY, WEEKLY
+  dayOfMonth   Int?                   // 1 to 31 for monthly schedule
+  dayOfWeek    Int?                   // 1 (Monday) to 7 (Sunday) for weekly schedule
+  autoSubmit   Boolean                @default(false) // If true, status is SUBMITTED instead of DRAFT
+  active       Boolean                @default(true)
+  creatorId    String
+  departmentId String?
+  siteId       String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  
+  creator      User                   @relation(fields: [creatorId], references: [id])
+  items        RecurringRequestItem[]
+
+  @@map("recurring_requests")
+}
+
+model RecurringRequestItem {
+  id                 String           @id @default(uuid())
+  recurringRequestId String
+  name               String
+  qty                Int
+  unit               String
+  price              Decimal          @db.Decimal(15, 2)
+  recurringRequest   RecurringRequest @relation(fields: [recurringRequestId], references: [id], onDelete: Cascade)
+
+  @@map("recurring_request_items")
+}
+
