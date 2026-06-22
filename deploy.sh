@@ -29,6 +29,9 @@ echo "--> Merestart proses PM2..."
 if command -v pm2 &> /dev/null; then
     pm2 startOrReload ecosystem.config.js
     echo "--> Aplikasi berhasil di-deploy dan dijalankan dengan PM2!"
+elif [ -f "./backend/node_modules/.bin/pm2" ]; then
+    ./backend/node_modules/.bin/pm2 startOrReload ecosystem.config.js
+    echo "--> Aplikasi berhasil di-deploy dan dijalankan dengan PM2 Lokal!"
 else
     echo "Peringatan: PM2 tidak ditemukan di server ini. Silakan jalankan backend manual dengan 'npm run dev' di folder backend."
 fi
