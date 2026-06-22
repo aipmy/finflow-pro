@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, CheckSquare, Package, Wallet,
   Coins, BarChart3, History, Users, Settings, LogOut, Menu, Plus, X,
-  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar
+  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar, ChevronDown
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -248,6 +248,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="text-xs font-medium leading-tight">{user?.name?.split(" ")[0]}</div>
                   <div className="text-[10px] text-muted-foreground capitalize text-left">{user?.role}</div>
                 </div>
+                <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", profileOpen && "rotate-180")} />
               </button>
 
               {profileOpen && (
