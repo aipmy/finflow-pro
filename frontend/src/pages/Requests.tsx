@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, Plus, Download } from "lucide-react";
+import { Search, Plus, Download, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +33,10 @@ export default function Requests() {
   const [sites, setSites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Sorting states
+  const [sortBy, setSortBy] = useState<"title" | "createdAt">("title");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -56,15 +60,38 @@ export default function Requests() {
     loadData();
   }, []);
 
-  const list = useMemo(() => requests.filter(r => {
-    if (q && !`${r.title} ${r.code}`.toLowerCase().includes(q.toLowerCase())) return false;
-    if (status !== "all" && r.status !== status) return false;
-    if (cat !== "all" && r.categoryId !== cat) return false;
-    if (dept !== "all" && r.departmentId !== dept) return false;
-    return true;
-  }), [requests, q, status, cat, dept]);
+  const list = useMemo(() => {
+    const filtered = requests.filter(r => {
+      if (q && !`${r.title} ${r.code}`.toLowerCase().includes(q.toLowerCase())) return false;
+      if (status !== "all" && r.status !== status) return false;
+      if (cat !== "all" && r.categoryId !== cat) return false;
+      if (dept !== "all" && r.departmentId !== dept) return false;
+      return true;
+    });
+
+    return filtered.sort((a, b) => {
+      if (sortBy === "title") {
+        const valA = a.title.toLowerCase();
+        const valB = b.title.toLowerCase();
+        return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      } else {
+        const valA = new Date(a.createdAt).getTime();
+        const valB = new Date(b.createdAt).getTime();
+        return sortOrder === "asc" ? valA - valB : valB - valA;
+      }
+    });
+  }, [requests, q, status, cat, dept, sortBy, sortOrder]);
 
   const statuses = ["DRAFT", "SUBMITTED", "NEED_REVISION", "APPROVED_BY_SUPERVISOR", "APPROVED_BY_FINANCE", "REJECTED", "PURCHASED", "REALIZED", "CLOSED"];
+
+  const handleHeaderClick = (field: "title" | "createdAt") => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
 
   if (loading) {
     return (
@@ -92,7 +119,7 @@ export default function Requests() {
 
       <Card className="shadow-elegant">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
             <div className="relative lg:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Cari kode atau judul..." className="pl-9" value={q} onChange={e => setQ(e.target.value)} />
@@ -118,6 +145,19 @@ export default function Requests() {
                 {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={`${sortBy}-${sortOrder}`} onValueChange={val => {
+              const [field, order] = val.split("-");
+              setSortBy(field as any);
+              setSortOrder(order as any);
+            }}>
+              <SelectTrigger><SelectValue placeholder="Urutkan" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="title-asc">Judul (A-Z)</SelectItem>
+                <SelectItem value="title-desc">Judul (Z-A)</SelectItem>
+                <SelectItem value="createdAt-desc">Tanggal (Terbaru)</SelectItem>
+                <SelectItem value="createdAt-asc">Tanggal (Terlama)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -129,13 +169,23 @@ export default function Requests() {
             <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="text-left p-3 font-medium">Kode</th>
-                <th className="text-left p-3 font-medium">Judul</th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/80 select-none transition-colors" onClick={() => handleHeaderClick("title")}>
+                  <div className="flex items-center gap-1.5">
+                    Judul
+                    <ArrowUpDown className={`h-3 w-3 ${sortBy === "title" ? "text-primary" : "text-muted-foreground/50"}`} />
+                  </div>
+                </th>
                 <th className="text-left p-3 font-medium">Tipe</th>
                 <th className="text-left p-3 font-medium">Pemohon</th>
                 <th className="text-left p-3 font-medium">Site</th>
                 <th className="text-right p-3 font-medium">Jumlah</th>
                 <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-left p-3 font-medium">Tanggal</th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/80 select-none transition-colors" onClick={() => handleHeaderClick("createdAt")}>
+                  <div className="flex items-center gap-1.5">
+                    Tanggal
+                    <ArrowUpDown className={`h-3 w-3 ${sortBy === "createdAt" ? "text-primary" : "text-muted-foreground/50"}`} />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
