@@ -54,6 +54,9 @@ export const requestRepository = {
         items: {
           include: {
             category: true,
+          },
+          orderBy: {
+            createdAt: "asc"
           }
         },
         realizationProofs: {
@@ -81,6 +84,9 @@ export const requestRepository = {
             item: true,
             unit: true,
             category: true,
+          },
+          orderBy: {
+            createdAt: "asc"
           }
         },
         attachments: true,
@@ -163,15 +169,17 @@ export const requestRepository = {
 
       // 3. Create items
       if (items && items.length > 0) {
+        const now = Date.now();
         await tx.requestItem.createMany({
-          data: items.map(item => ({
+          data: items.map((item, index) => ({
             requestId: request.id,
             itemId: item.itemId || null,
             name: item.name,
             qty: item.qty,
             unitId: item.unitId || null,
             price: item.price,
-            categoryId: item.categoryId || null
+            categoryId: item.categoryId || null,
+            createdAt: new Date(now + index * 1000)
           }))
         });
       }
@@ -238,15 +246,17 @@ export const requestRepository = {
       // 2. Sync items (delete existing, write new)
       await tx.requestItem.deleteMany({ where: { requestId: id } });
       if (items && items.length > 0) {
+        const now = Date.now();
         await tx.requestItem.createMany({
-          data: items.map(item => ({
+          data: items.map((item, index) => ({
             requestId: id,
             itemId: item.itemId || null,
             name: item.name,
             qty: item.qty,
             unitId: item.unitId || null,
             price: item.price,
-            categoryId: item.categoryId || null
+            categoryId: item.categoryId || null,
+            createdAt: new Date(now + index * 1000)
           }))
         });
       }

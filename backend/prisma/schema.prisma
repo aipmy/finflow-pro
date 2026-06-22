@@ -230,6 +230,7 @@ model RequestItem {
   unitId            String?
   price             Decimal            @db.Decimal(15, 2)
   categoryId        String?
+  createdAt         DateTime           @default(now())
   request           Request            @relation(fields: [requestId], references: [id], onDelete: Cascade)
   item              Item?              @relation(fields: [itemId], references: [id], onDelete: SetNull)
   unit              Unit?              @relation(fields: [unitId], references: [id], onDelete: SetNull)

@@ -86,6 +86,9 @@ export const financeRepository = {
         items: {
           include: {
             unit: true
+          },
+          orderBy: {
+            createdAt: "asc"
           }
         }
       }
