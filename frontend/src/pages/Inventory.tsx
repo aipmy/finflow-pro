@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, ArrowDown, ArrowUp, AlertTriangle, Package, Trash2, Camera, FileImage, Pencil } from "lucide-react";
+import { Search, Plus, ArrowDown, ArrowUp, ArrowUpDown, AlertTriangle, Package, Trash2, Camera, FileImage, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,8 @@ export default function Inventory() {
   const [newItemStock, setNewItemStock] = useState("0");
   const [newItemMinStock, setNewItemMinStock] = useState("0");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'sku', direction: 'asc' });
 
   // Form State - Stock Movement
   const [editingMovementId, setEditingMovementId] = useState<string | null>(null);
@@ -136,6 +138,48 @@ export default function Inventory() {
   const filtered = items.filter(i =>
     !q || `${i.name} ${i.sku}`.toLowerCase().includes(q.toLowerCase())
   );
+  
+  const sortedItems = [...filtered].sort((a, b) => {
+    let valA: any = a[sortConfig.key as keyof typeof a];
+    let valB: any = b[sortConfig.key as keyof typeof b];
+
+    if (sortConfig.key === 'location') {
+      valA = a.location?.name || '';
+      valB = b.location?.name || '';
+    } else if (sortConfig.key === 'unit') {
+      valA = a.unit?.name || '';
+      valB = b.unit?.name || '';
+    } else if (sortConfig.key === 'status') {
+      valA = a.stock < a.minStock ? 0 : 1;
+      valB = b.stock < b.minStock ? 0 : 1;
+    } else if (sortConfig.key === 'name') {
+      valA = (a.name || '').toLowerCase();
+      valB = (b.name || '').toLowerCase();
+    } else if (sortConfig.key === 'sku') {
+      valA = (a.sku || '').toLowerCase();
+      valB = (b.sku || '').toLowerCase();
+    } else if (sortConfig.key === 'category') {
+      valA = (a.category?.name || '').toLowerCase();
+      valB = (b.category?.name || '').toLowerCase();
+    }
+
+    if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig.key !== columnKey) return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 ml-1 inline" /> : <ArrowDown className="h-3 w-3 ml-1 inline" />;
+  };
   
   const lowCount = items.filter(i => i.stock < i.minStock).length;
 
@@ -559,19 +603,19 @@ export default function Inventory() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="text-left p-3 font-medium">SKU</th>
-                <th className="text-left p-3 font-medium">Nama Barang</th>
-                <th className="text-left p-3 font-medium">Kategori</th>
-                <th className="text-right p-3 font-medium">Stok</th>
-                <th className="text-right p-3 font-medium">Min</th>
-                <th className="text-left p-3 font-medium">Unit</th>
-                <th className="text-left p-3 font-medium">Lokasi</th>
-                <th className="text-left p-3 font-medium">Status</th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('sku')}>SKU <SortIcon columnKey="sku" /></th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('name')}>Nama Barang <SortIcon columnKey="name" /></th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('category')}>Kategori <SortIcon columnKey="category" /></th>
+                <th className="text-right p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('stock')}>Stok <SortIcon columnKey="stock" /></th>
+                <th className="text-right p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('minStock')}>Min <SortIcon columnKey="minStock" /></th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('unit')}>Unit <SortIcon columnKey="unit" /></th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('location')}>Lokasi <SortIcon columnKey="location" /></th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/70" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></th>
                 <th className="text-right p-3 font-medium">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(i => {
+              {sortedItems.map(i => {
                 const c = i.category;
                 const s = i.location;
                 const low = i.stock < i.minStock;
@@ -621,12 +665,12 @@ export default function Inventory() {
               })}
             </tbody>
           </table>
-          {filtered.length === 0 && <div className="p-12 text-center text-sm text-muted-foreground">Tidak ada barang ditemukan</div>}
+          {sortedItems.length === 0 && <div className="p-12 text-center text-sm text-muted-foreground">Tidak ada barang ditemukan</div>}
         </div>
       </Card>
 
       <div className="md:hidden space-y-2">
-        {filtered.map(i => {
+        {sortedItems.map(i => {
           const s = i.location;
           const low = i.stock < i.minStock;
           return (
