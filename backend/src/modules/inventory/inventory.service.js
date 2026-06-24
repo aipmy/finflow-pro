@@ -15,7 +15,15 @@ export const inventoryService = {
       throw { status: 400, message: "Item name and SKU are required" };
     }
 
-    const item = await inventoryRepository.createItem(data);
+    let item;
+    try {
+      item = await inventoryRepository.createItem(data);
+    } catch (err) {
+      if (err.code === 'P2002') {
+        throw { status: 400, message: "SKU sudah terdaftar" };
+      }
+      throw err;
+    }
 
     await auditService.log({
       userId: user.userId,
@@ -38,10 +46,18 @@ export const inventoryService = {
       throw { status: 404, message: "Item not found" };
     }
 
-    const item = await inventoryRepository.updateItem(id, {
-      ...existing,
-      ...data
-    });
+    let item;
+    try {
+      item = await inventoryRepository.updateItem(id, {
+        ...existing,
+        ...data
+      });
+    } catch (err) {
+      if (err.code === 'P2002') {
+        throw { status: 400, message: "SKU sudah terdaftar" };
+      }
+      throw err;
+    }
 
     await auditService.log({
       userId: user.userId,
