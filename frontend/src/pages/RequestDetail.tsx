@@ -986,7 +986,10 @@ export default function RequestDetail() {
           </Card>
 
           {/* Actions */}
-          {can(user?.role, "request.approve") && ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status) && (
+          {can(user?.role, "request.approve") && (
+            (r.status === "SUBMITTED" && ["supervisor", "manager", "finance", "admin"].includes(user?.role?.toLowerCase() || "")) ||
+            (r.status === "APPROVED_BY_SUPERVISOR" && ["finance", "admin"].includes(user?.role?.toLowerCase() || ""))
+          ) && (
             <Card className="shadow-elegant lg:static fixed bottom-16 inset-x-0 lg:bottom-auto lg:inset-auto z-20 lg:z-auto rounded-none lg:rounded-lg border-t-2 lg:border">
               <CardHeader className="pb-2 hidden lg:block"><CardTitle className="text-base">Aksi Approval</CardTitle></CardHeader>
               <CardContent className="p-3 lg:p-6 space-y-2">

@@ -7,8 +7,10 @@ import { formatRupiah, relativeTime } from "@/utils/format";
 import { apiClient } from "@/services/apiClient";
 import { CheckCircle2, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/stores/authStore";
 
 export default function Approvals() {
+  const { user } = useAuth();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +29,18 @@ export default function Approvals() {
     loadRequests();
   }, []);
 
-  const pending = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status));
+  const pending = requests.filter(r => {
+    const role = user?.role?.toLowerCase() || "";
+    if (r.status === "SUBMITTED") {
+      // Supervisor, Manager, Finance, and Admin can see and approve SUBMITTED
+      return ["supervisor", "manager", "finance", "admin"].includes(role);
+    }
+    if (r.status === "APPROVED_BY_SUPERVISOR") {
+      // Only Finance and Admin can see and approve APPROVED_BY_SUPERVISOR
+      return ["finance", "admin"].includes(role);
+    }
+    return false;
+  });
 
   const ruleFor = (amount: number) => {
     if (amount < 500000) return "Staff → Finance";
