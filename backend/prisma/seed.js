@@ -214,6 +214,7 @@ async function main() {
     { name: "Box" },
     { name: "Lot" },
     { name: "Hari" },
+    { name: "Minggu" },
     { name: "Pax" },
     { name: "Unit" },
     { name: "Set" },

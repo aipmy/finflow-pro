@@ -69,5 +69,27 @@ export const inventoryController = {
     } catch (err) {
       next(err);
     }
+  },
+
+  updateMovement: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const ipAddress = req.ip || req.headers["x-forwarded-for"] || "";
+      const result = await inventoryService.updateMovement(id, req.body, req.user, ipAddress);
+      return res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  deleteMovement: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const ipAddress = req.ip || req.headers["x-forwarded-for"] || "";
+      const result = await inventoryService.deleteMovement(id, req.user, ipAddress);
+      return res.json(result);
+    } catch (err) {
+      next(err);
+    }
   }
 };

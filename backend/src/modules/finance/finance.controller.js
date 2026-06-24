@@ -32,11 +32,12 @@ export const financeController = {
 
   topUpPettyCash: async (req, res, next) => {
     try {
-      const { amount, description, type } = req.body;
+      const { amount, description, type, date } = req.body;
       const result = await financeService.topUpPettyCash({
         amount,
         description,
         type,
+        date,
         user: req.user
       });
       return res.json(result);
@@ -48,15 +49,29 @@ export const financeController = {
   updatePettyCashTransaction: async (req, res, next) => {
     try {
       const { id } = req.params;
-      const { amount, description, type } = req.body;
+      const { amount, description, type, date } = req.body;
       const result = await financeService.updatePettyCashTransaction({
         id,
         amount,
         description,
         type,
+        date,
         user: req.user
       });
       return res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  deletePettyCashTransaction: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const result = await financeService.deletePettyCashTransaction({
+        id,
+        user: req.user
+      });
+      return res.json({ success: true, deleted: result });
     } catch (err) {
       next(err);
     }

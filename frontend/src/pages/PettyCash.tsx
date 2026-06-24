@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Coins, ArrowDown, ArrowUp, Plus, TrendingUp, FileText, Upload, Pencil } from "lucide-react";
+import { Coins, ArrowDown, ArrowUp, Plus, TrendingUp, FileText, Upload, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,18 +10,34 @@ import {
   DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { formatRupiah, formatDate } from "@/utils/format";
 import { apiClient } from "@/services/apiClient";
+import { useAuth } from "@/stores/authStore";
 import { toast } from "sonner";
+import { ImagePreviewModal } from "@/components/ImagePreviewModal";
 
 export default function PettyCash() {
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toLowerCase() === "admin";
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
   const [txType, setTxType] = useState<"IN" | "OUT" | string>("OUT");
+  const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [departments, setDepartments] = useState<any[]>([]);
@@ -33,6 +49,13 @@ export default function PettyCash() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [existingReceiptUrl, setExistingReceiptUrl] = useState<string>("");
+
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewDetails, setPreviewDetails] = useState<any[]>([]);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [txToDelete, setTxToDelete] = useState<any>(null);
 
   async function loadPettyCash() {
     try {
@@ -58,6 +81,19 @@ export default function PettyCash() {
     loadPettyCash();
   }, []);
 
+  const handleDeleteTx = async () => {
+    if (!txToDelete) return;
+    try {
+      await apiClient.pettyCash.delete(txToDelete.id);
+      toast.success("Transaksi berhasil dihapus");
+      setTxToDelete(null);
+      setIsDeleteDialogOpen(false);
+      loadPettyCash();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus transaksi");
+    }
+  };
+
   const handleCreateTransaction = async () => {
     const amtNum = parseFloat(amount);
     if (isNaN(amtNum) || amtNum <= 0) {
@@ -68,7 +104,7 @@ export default function PettyCash() {
     setIsSubmitting(true);
     try {
       let receiptUrl = existingReceiptUrl;
-      if (txType === "OUT" && file) {
+      if (file) {
         const uploadRes = await apiClient.upload(file);
         if (uploadRes && uploadRes.file && uploadRes.file.url) {
           receiptUrl = uploadRes.file.url;
@@ -76,34 +112,33 @@ export default function PettyCash() {
       }
 
       let finalDesc = desc;
-      if (txType === "OUT") {
-        let prefix = "";
-        if (selectedCategory) {
-          prefix = `[${selectedCategory}] `;
-        }
-        let suffixes = [];
-        if (selectedDept) {
-          suffixes.push(`Dept: ${selectedDept}`);
-        }
-        if (selectedUser) {
-          suffixes.push(`Person: ${selectedUser}`);
-        }
-        if (receiptUrl) {
-          suffixes.push(`Receipt: ${receiptUrl}`);
-        }
-        const suffixStr = suffixes.length > 0 ? ` | ${suffixes.join(" | ")}` : "";
-        finalDesc = `${prefix}${desc}${suffixStr}`;
+      let prefix = "";
+      if (txType === "OUT" && selectedCategory) {
+        prefix = `[${selectedCategory}] `;
       }
+      let suffixes = [];
+      if (txType === "OUT" && selectedDept) {
+        suffixes.push(`Dept: ${selectedDept}`);
+      }
+      if (txType === "OUT" && selectedUser) {
+        suffixes.push(`Person: ${selectedUser}`);
+      }
+      if (receiptUrl) {
+        suffixes.push(`Receipt: ${receiptUrl}`);
+      }
+      const suffixStr = suffixes.length > 0 ? ` | ${suffixes.join(" | ")}` : "";
+      finalDesc = `${prefix}${desc}${suffixStr}`;
 
       if (editingTxId) {
-        await apiClient.pettyCash.update(editingTxId, amtNum, finalDesc, txType);
+        await apiClient.pettyCash.update(editingTxId, amtNum, finalDesc, txType, date);
         toast.success("Transaksi kas kecil berhasil diperbarui");
       } else {
-        await apiClient.pettyCash.topUp(amtNum, finalDesc, txType);
+        await apiClient.pettyCash.topUp(amtNum, finalDesc, txType, date);
         toast.success("Transaksi kas kecil berhasil disimpan");
       }
       setAmount("");
       setDesc("");
+      setDate(new Date().toISOString().split("T")[0]);
       setSelectedCategory("");
       setSelectedDept("");
       setSelectedUser("");
@@ -155,6 +190,7 @@ export default function PettyCash() {
     setSelectedUser(person);
     setExistingReceiptUrl(receiptUrl);
     setFile(null);
+    setDate(new Date(t.date || t.createdAt).toISOString().split("T")[0]);
     setIsOpen(true);
   };
 
@@ -189,6 +225,7 @@ export default function PettyCash() {
               setAmount("");
               setDesc("");
               setTxType("OUT");
+              setDate(new Date().toISOString().split("T")[0]);
               setSelectedCategory("");
               setSelectedDept("");
               setSelectedUser("");
@@ -215,14 +252,27 @@ export default function PettyCash() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              <div>
+                <Label htmlFor="date">Tanggal Transaksi</Label>
+                <Input 
+                  id="date" 
+                  type="date" 
+                  className="mt-1.5"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+
               <div>
                 <Label htmlFor="amount">Nominal Transaksi (Rp)</Label>
                 <Input 
                   id="amount" 
-                  type="number" 
-                  placeholder="Contoh: 50000" 
-                  value={amount} 
-                  onChange={e => setAmount(e.target.value)} 
+                  type="text" 
+                  inputMode="numeric"
+                  placeholder="Contoh: 50.000" 
+                  value={amount ? Number(amount.replace(/\D/g, "")).toLocaleString("id-ID") : ""} 
+                  onChange={e => setAmount(e.target.value.replace(/\D/g, ""))} 
                   className="mt-1.5"
                 />
               </div>
@@ -280,24 +330,22 @@ export default function PettyCash() {
                   className="mt-1.5"
                 />
               </div>
-              {txType === "OUT" && (
-                <div>
-                  <Label htmlFor="receipt">Bukti Nota / Invoice (Opsional)</Label>
-                  <Input 
-                    id="receipt" 
-                    type="file" 
-                    accept="image/*,.pdf" 
-                    onChange={e => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        setFile(e.target.files[0]);
-                      } else {
-                        setFile(null);
-                      }
-                    }} 
-                    className="mt-1.5 cursor-pointer file:text-primary file:font-semibold"
-                  />
-                </div>
-              )}
+              <div>
+                <Label htmlFor="receipt">Bukti Transaksi (Opsional)</Label>
+                <Input 
+                  id="receipt" 
+                  type="file" 
+                  accept="image/*,.pdf" 
+                  onChange={e => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setFile(e.target.files[0]);
+                    } else {
+                      setFile(null);
+                    }
+                  }} 
+                  className="mt-1.5 cursor-pointer file:text-primary file:font-semibold"
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleCreateTransaction} className="gradient-primary text-primary-foreground" disabled={isSubmitting}>
@@ -401,22 +449,35 @@ export default function PettyCash() {
                           )}
                           <span>{cleanDesc}</span>
                           {receiptUrl && (
-                            <a 
-                              href={receiptUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
+                            <button 
+                              onClick={() => {
+                                if (receiptUrl.toLowerCase().endsWith(".pdf")) {
+                                  window.open(receiptUrl, "_blank");
+                                } else {
+                                  setPreviewUrl(receiptUrl);
+                                  setPreviewDetails([
+                                    { label: "Jenis Transaksi", value: t.type === "IN" ? "Kas Masuk" : "Kas Keluar" },
+                                    { label: "Tanggal", value: formatDate(t.date || t.createdAt) },
+                                    { label: "Keterangan", value: cleanDesc },
+                                    { label: "Nominal", value: formatRupiah(Number(t.amount)) },
+                                    { label: "Departemen", value: displayDept || "-" },
+                                    { label: "Penanggung Jawab", value: displayPerson || "-" },
+                                  ]);
+                                  setIsPreviewOpen(true);
+                                }
+                              }}
                               className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline ml-1.5 font-medium bg-primary/5 px-1.5 py-0.5 rounded"
                             >
                               <FileText className="h-3 w-3" />
                               Nota
-                            </a>
+                            </button>
                           )}
                         </>
                       );
                     })()}
                   </div>
                   <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-1.5 mt-0.5">
-                    <span>{formatDate(t.createdAt)}</span>
+                    <span>{formatDate(t.date || t.createdAt)}</span>
                     {(() => {
                       let department: string | null = null;
                       let person: string | null = null;
@@ -477,15 +538,28 @@ export default function PettyCash() {
                   {t.type === "IN" ? "+" : "-"}{formatRupiah(Number(t.amount))}
                 </div>
                 {(!t.refRequestId || t.refRequestId === "-") && (
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={() => handleEditClick(t)}
-                    title="Edit Transaksi"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
+                  <>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
+                      onClick={() => handleEditClick(t)}
+                      title="Edit Transaksi"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    {isAdmin && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => { setTxToDelete(t); setIsDeleteDialogOpen(true); }}
+                        title="Hapus Transaksi"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -493,6 +567,31 @@ export default function PettyCash() {
           {transactions.length === 0 && <div className="text-center py-8 text-sm text-muted-foreground">Belum ada riwayat transaksi kas kecil</div>}
         </CardContent>
       </Card>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak dapat dibatalkan. Ini akan menghapus transaksi ini dari riwayat kas kecil.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTx} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ImagePreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        imageUrl={previewUrl}
+        title="Bukti Transaksi"
+        details={previewDetails}
+      />
     </div>
   );
 }

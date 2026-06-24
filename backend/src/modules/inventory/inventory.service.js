@@ -81,7 +81,7 @@ export const inventoryService = {
     return inventoryRepository.listMovements(filters);
   },
 
-  createMovement: async ({ itemId, type, quantity, note, createdAt }, user, ipAddress) => {
+  createMovement: async ({ itemId, type, quantity, note, proofUrl, createdAt }, user, ipAddress) => {
     if (user.role !== "admin" && user.role !== "staff" && user.role !== "finance") {
       throw { status: 403, message: "Forbidden: You do not have permission to log stock movements" };
     }
@@ -95,6 +95,7 @@ export const inventoryService = {
       type,
       quantity,
       note,
+      proofUrl,
       actorId: user.userId,
       createdAt
     });
@@ -110,5 +111,42 @@ export const inventoryService = {
     });
 
     return movement;
+  },
+
+  updateMovement: async (id, data, user, ipAddress) => {
+    if (user.role !== "admin" && user.role !== "staff" && user.role !== "finance") {
+      throw { status: 403, message: "Forbidden: You do not have permission to log stock movements" };
+    }
+
+    const existing = await inventoryRepository.listMovements(); // This is just for simple validation, better to rely on repo's error
+    const movement = await inventoryRepository.updateMovement(id, data);
+
+    await auditService.log({
+      userId: user.userId,
+      module: "INVENTORY",
+      action: `UPDATE_STOCK_MOVEMENT`,
+      target: id,
+      ipAddress
+    });
+
+    return movement;
+  },
+
+  deleteMovement: async (id, user, ipAddress) => {
+    if (user.role !== "admin" && user.role !== "finance") {
+      throw { status: 403, message: "Forbidden: Only Admin or Finance can delete stock movements" };
+    }
+
+    const existing = await inventoryRepository.deleteMovement(id);
+
+    await auditService.log({
+      userId: user.userId,
+      module: "INVENTORY",
+      action: "DELETE_STOCK_MOVEMENT",
+      target: id,
+      ipAddress
+    });
+
+    return { success: true };
   }
 };

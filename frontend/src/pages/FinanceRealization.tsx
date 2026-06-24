@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Wallet, Upload, CheckCircle2 } from "lucide-react";
+import { Wallet, Upload, CheckCircle2, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,14 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatRupiah, formatDate } from "@/utils/format";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
+import { ImagePreviewModal } from "@/components/ImagePreviewModal";
+
+const formatNumberWithDots = (num: number | string) => {
+  if (!num) return "";
+  const clean = String(num).replace(/[^0-9]/g, "");
+  if (!clean) return "";
+  return new Intl.NumberFormat("id-ID").format(parseInt(clean, 10));
+};
 
 export default function FinanceRealization() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -22,6 +30,9 @@ export default function FinanceRealization() {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState<Record<string, boolean>>({});
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewDetails, setPreviewDetails] = useState<any[]>([]);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   async function loadRequests() {
     try {
@@ -53,6 +64,11 @@ export default function FinanceRealization() {
     const amountNum = parseFloat(actual);
     if (isNaN(amountNum) || amountNum <= 0) {
       toast.error("Masukkan jumlah realisasi yang valid");
+      return;
+    }
+
+    if (!file) {
+      toast.error("Bukti lampiran realisasi wajib diunggah");
       return;
     }
 
@@ -161,10 +177,14 @@ export default function FinanceRealization() {
                             <Label>Realisasi Aktual</Label>
                             <Input 
                               className="mt-1.5" 
-                              type="number" 
+                              type="text" 
+                              inputMode="numeric"
                               placeholder="0" 
-                              value={actual} 
-                              onChange={e => setActual(e.target.value)} 
+                              value={formatNumberWithDots(actual)} 
+                              onChange={e => {
+                                const cleanVal = e.target.value.replace(/[^0-9]/g, "");
+                                setActual(cleanVal);
+                              }} 
                             />
                           </div>
                         </div>
@@ -174,7 +194,7 @@ export default function FinanceRealization() {
                           </div>
                         )}
                         <div>
-                          <Label htmlFor={`file-${r.id}`}>Upload Bukti / Invoice</Label>
+                          <Label htmlFor={`file-${r.id}`}>Upload Bukti / Invoice <span className="text-destructive">*</span></Label>
                           <div className="mt-1.5 border-2 border-dashed rounded-md p-4 text-center cursor-pointer relative hover:bg-muted/20">
                             <input 
                               type="file" 
@@ -238,12 +258,44 @@ export default function FinanceRealization() {
                   <div className={`text-[10px] ${diff >= 0 ? "text-destructive" : "text-success"}`}>
                     {diff >= 0 ? "+" : ""}{formatRupiah(diff)}
                   </div>
+                  {r.financeRealization?.receiptUrl && (
+                    <button 
+                      onClick={() => {
+                        const url = r.financeRealization?.receiptUrl;
+                        if (url?.toLowerCase().endsWith(".pdf")) {
+                          window.open(url, "_blank");
+                        } else if (url) {
+                          setPreviewUrl(url);
+                          setPreviewDetails([
+                            { label: "Kode Transaksi", value: r.code },
+                            { label: "Pengajuan", value: r.title },
+                            { label: "Tanggal Realisasi", value: formatDate(r.financeRealization?.createdAt || new Date()) },
+                            { label: "Diminta", value: formatRupiah(Number(r.amount)) },
+                            { label: "Terealisasi", value: formatRupiah(Number(r.financeRealization?.realizedAmount || 0)) },
+                            { label: "Selisih", value: formatRupiah(diff) },
+                          ]);
+                          setIsPreviewOpen(true);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-medium bg-primary/5 px-1.5 py-0.5 rounded mt-1"
+                    >
+                      <FileText className="h-3 w-3" />
+                      Lihat Bukti
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </CardContent>
       </Card>
+      <ImagePreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        imageUrl={previewUrl}
+        title="Bukti Realisasi"
+        details={previewDetails}
+      />
     </div>
   );
 }

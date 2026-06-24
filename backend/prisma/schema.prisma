@@ -182,6 +182,7 @@ model InventoryMovement {
   type      String   // IN, OUT
   quantity  Int
   note      String?
+  proofUrl  String?
   actorId   String
   createdAt DateTime @default(now())
   item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -303,6 +304,7 @@ model PettyCashTransaction {
   type           String   // IN, OUT
   description    String
   refRequestId   String?
+  date           DateTime @default(now())
   createdAt      DateTime @default(now())
 
   @@map("petty_cash_transactions")

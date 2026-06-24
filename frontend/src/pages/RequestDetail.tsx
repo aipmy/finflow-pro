@@ -636,7 +636,16 @@ export default function RequestDetail() {
                                 <span className="text-[10px] font-semibold text-muted-foreground">Tanpa Nota / Bukti Fisik</span>
                               </div>
                             ) : (
-                              <div className="aspect-square flex flex-col items-center justify-center bg-muted/30 p-3">
+                              <div 
+                                className="aspect-square flex flex-col items-center justify-center bg-muted/30 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => {
+                                  if (p.fileUrl.toLowerCase().endsWith(".pdf")) {
+                                    window.open(p.fileUrl, "_blank");
+                                  } else {
+                                    setPreviewImage(p.fileUrl);
+                                  }
+                                }}
+                              >
                                 <FileText className="h-10 w-10 text-muted-foreground mb-2" />
                                 <span className="text-[10px] text-muted-foreground text-center truncate w-full">{p.fileName}</span>
                               </div>

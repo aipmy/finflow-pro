@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, ArrowDown, ArrowUp, AlertTriangle, Package, Trash2 } from "lucide-react";
+import { Search, Plus, ArrowDown, ArrowUp, AlertTriangle, Package, Trash2, Camera, FileImage } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,8 @@ import { formatNumber, formatDate, formatDateTime } from "@/utils/format";
 import { apiClient } from "@/services/apiClient";
 import { useAuth } from "@/stores/authStore";
 import { toast } from "sonner";
+import { ImagePreviewModal } from "@/components/ImagePreviewModal";
+import { WebcamCapture } from "@/components/WebcamCapture";
 
 export default function Inventory() {
   const { user } = useAuth();
@@ -62,11 +64,22 @@ export default function Inventory() {
   const [newItemMinStock, setNewItemMinStock] = useState("0");
 
   // Form State - Stock Movement
+  const [editingMovementId, setEditingMovementId] = useState<string | null>(null);
   const [movItem, setMovItem] = useState("");
   const [movQty, setMovQty] = useState("");
   const [movNote, setMovNote] = useState("");
   const [movDate, setMovDate] = useState("");
   const [movTime, setMovTime] = useState("");
+  const [movProof, setMovProof] = useState<File | null>(null);
+  const [movProofUrl, setMovProofUrl] = useState<string>("");
+
+  const [movementToDelete, setMovementToDelete] = useState<any>(null);
+  const [isDeleteMovementDialogOpen, setIsDeleteMovementDialogOpen] = useState(false);
+
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewDetails, setPreviewDetails] = useState<any[]>([]);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isUsingWebcam, setIsUsingWebcam] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -162,7 +175,7 @@ export default function Inventory() {
     }
   };
 
-  const handleCreateMovement = async () => {
+  const handleSaveMovement = async () => {
     const qtyNum = parseInt(movQty, 10);
     if (!movItem || isNaN(qtyNum) || qtyNum <= 0) {
       toast.error("Pilih barang dan masukkan jumlah yang valid");
@@ -177,26 +190,43 @@ export default function Inventory() {
 
     setIsSubmitting(true);
     try {
+      let proofUrl = movProofUrl;
+      if (movProof) {
+        const uploadRes = await apiClient.upload(movProof);
+        proofUrl = uploadRes.file.url;
+      }
+
       let movementDate: string | undefined = undefined;
       if (movDate) {
         const timePart = movTime || "00:00";
         movementDate = new Date(`${movDate}T${timePart}:00`).toISOString();
       }
 
-      await apiClient.inventory.createMovement({
+      const payload = {
         itemId: movItem,
         type: movType,
         quantity: qtyNum,
         note: movNote,
+        proofUrl,
         createdAt: movementDate
-      });
-      toast.success(`Transaksi stock ${movType} berhasil`);
+      };
+
+      if (editingMovementId) {
+        await apiClient.inventory.updateMovement(editingMovementId, payload);
+        toast.success(`Transaksi stock berhasil diperbarui`);
+      } else {
+        await apiClient.inventory.createMovement(payload);
+        toast.success(`Transaksi stock ${movType} berhasil dicatat`);
+      }
 
       setMovItem("");
       setMovQty("");
       setMovNote("");
       setMovDate("");
       setMovTime("");
+      setMovProof(null);
+      setMovProofUrl("");
+      setEditingMovementId(null);
       setIsMovementOpen(false);
 
       loadData();
@@ -204,6 +234,37 @@ export default function Inventory() {
       toast.error(err.message || "Gagal menyimpan transaksi stok");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditMovement = (m: any) => {
+    setEditingMovementId(m.id);
+    setMovType(m.type);
+    setMovItem(m.itemId);
+    setMovQty(m.quantity.toString());
+    setMovNote(m.note || "");
+    if (m.createdAt) {
+      const d = new Date(m.createdAt);
+      const tzoffset = d.getTimezoneOffset() * 60000;
+      const localISO = new Date(d.getTime() - tzoffset).toISOString();
+      setMovDate(localISO.split("T")[0]);
+      setMovTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+    }
+    setMovProof(null);
+    setMovProofUrl(m.proofUrl || "");
+    setIsMovementOpen(true);
+  };
+
+  const handleDeleteMovement = async () => {
+    if (!movementToDelete) return;
+    try {
+      await apiClient.inventory.deleteMovement(movementToDelete.id);
+      toast.success("Riwayat transaksi stok berhasil dihapus");
+      setIsDeleteMovementDialogOpen(false);
+      setMovementToDelete(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus riwayat stok");
     }
   };
 
@@ -225,13 +286,24 @@ export default function Inventory() {
         </div>
         <div className="flex gap-2">
           {/* Stock In / Out Dialog Trigger */}
-          <Dialog open={isMovementOpen} onOpenChange={(open) => {
-            setIsMovementOpen(open);
-            if (open) {
-              setMovDate(getCurrentDateString());
-              setMovTime(getCurrentTimeString());
-            }
-          }}>
+            <Dialog open={isMovementOpen} onOpenChange={(open) => {
+              setIsMovementOpen(open);
+              if (open && !editingMovementId) {
+                setMovDate(getCurrentDateString());
+                setMovTime(getCurrentTimeString());
+                setMovProof(null);
+                setMovProofUrl("");
+              }
+              if (!open) {
+                setEditingMovementId(null);
+                setMovItem("");
+                setMovQty("");
+                setMovNote("");
+                setMovProof(null);
+                setMovProofUrl("");
+                setIsUsingWebcam(false);
+              }
+            }}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline" onClick={() => setMovType("IN")}>
                 <ArrowDown className="h-4 w-4 mr-1.5" />Stock In
@@ -244,13 +316,13 @@ export default function Inventory() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Transaksi Stok - {movType}</DialogTitle>
-                <DialogDescription>Input pergerakan stok barang secara manual.</DialogDescription>
+                <DialogTitle>{editingMovementId ? "Edit Transaksi Stok" : `Transaksi Stok - ${movType}`}</DialogTitle>
+                <DialogDescription>{editingMovementId ? "Perbarui informasi riwayat stok." : "Input pergerakan stok barang secara manual."}</DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <div>
                   <Label>Pilih Barang</Label>
-                  <Select value={movItem} onValueChange={setMovItem}>
+                  <Select value={movItem} onValueChange={setMovItem} disabled={!!editingMovementId}>
                     <SelectTrigger className="mt-1.5">
                       <SelectValue placeholder="Pilih barang..." />
                     </SelectTrigger>
@@ -306,9 +378,48 @@ export default function Inventory() {
                     className="mt-1.5"
                   />
                 </div>
+                <div>
+                  <div className="flex justify-between items-center">
+                    <Label>Bukti / Lampiran (Opsional)</Label>
+                    {!isUsingWebcam && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => setIsUsingWebcam(true)}>
+                        <Camera className="h-3 w-3 mr-1" /> Buka Kamera
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {isUsingWebcam ? (
+                    <div className="mt-1.5 p-3 border rounded-md bg-muted/30">
+                      <WebcamCapture 
+                        onCapture={(file) => {
+                          setMovProof(file);
+                          setIsUsingWebcam(false);
+                        }}
+                        onCancel={() => setIsUsingWebcam(false)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 flex gap-2">
+                      <Input 
+                        id="movProof" 
+                        type="file" 
+                        accept="image/*"
+                        capture="environment"
+                        onChange={e => setMovProof(e.target.files?.[0] || null)} 
+                      />
+                    </div>
+                  )}
+
+                  {movProof && <p className="text-xs text-muted-foreground mt-1">File terpilih: {movProof.name}</p>}
+                  {!movProof && movProofUrl && (
+                    <div className="mt-2 text-sm text-blue-600 hover:underline cursor-pointer flex items-center gap-1" onClick={() => window.open(movProofUrl, '_blank')}>
+                      <FileImage className="h-4 w-4" /> Lihat Bukti Saat Ini
+                    </div>
+                  )}
+                </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleCreateMovement} className="gradient-primary text-primary-foreground" disabled={isSubmitting}>
+                <Button onClick={handleSaveMovement} className="gradient-primary text-primary-foreground" disabled={isSubmitting}>
                   {isSubmitting ? "Memproses..." : "Simpan Transaksi"}
                 </Button>
               </DialogFooter>
@@ -563,11 +674,46 @@ export default function Inventory() {
                   <div>
                     <div className="text-sm font-medium">{m.item?.name}</div>
                     <div className="text-[11px] text-muted-foreground">{m.note} • {m.actor?.name}</div>
+                    {m.proofUrl && (
+                      <button 
+                        onClick={() => {
+                          if (m.proofUrl.toLowerCase().endsWith(".pdf")) {
+                            window.open(m.proofUrl, "_blank");
+                          } else {
+                            setPreviewUrl(m.proofUrl);
+                            setPreviewDetails([
+                              { label: "Transaksi", value: `Stok ${m.type === "IN" ? "Masuk" : "Keluar"}` },
+                              { label: "Barang", value: m.item?.name },
+                              { label: "Jumlah", value: `${m.quantity} ${m.item?.unit?.name || "Unit"}` },
+                              { label: "Tanggal", value: formatDateTime(m.createdAt) },
+                              { label: "Diinput Oleh", value: m.actor?.name },
+                              { label: "Catatan", value: m.note || "-" }
+                            ]);
+                            setIsPreviewOpen(true);
+                          }
+                        }}
+                        className="text-[10px] text-primary hover:underline mt-0.5 inline-block"
+                      >
+                        Lihat Bukti
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold">{m.type === "IN" ? "+" : "-"}{m.quantity} {m.item?.unit?.name || "Unit"}</div>
-                  <div className="text-[10px] text-muted-foreground">{formatDateTime(m.createdAt)}</div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="text-sm font-semibold">{m.type === "IN" ? "+" : "-"}{m.quantity} {m.item?.unit?.name || "Unit"}</div>
+                    <div className="text-[10px] text-muted-foreground">{formatDateTime(m.createdAt)}</div>
+                  </div>
+                  {isAdmin && (
+                    <div className="flex flex-col gap-1">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={() => handleEditMovement(m)}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => { setMovementToDelete(m); setIsDeleteMovementDialogOpen(true); }}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -596,6 +742,29 @@ export default function Inventory() {
                     <div>
                       <div className="font-semibold">{m.type === "IN" ? "Masuk" : "Keluar"} {m.quantity} {selectedHistoryItem?.unit?.name || "Unit"}</div>
                       <div className="text-[10px] text-muted-foreground">{m.note || "Tanpa catatan"} • {m.actor?.name}</div>
+                      {m.proofUrl && (
+                        <button 
+                          onClick={() => {
+                            if (m.proofUrl.toLowerCase().endsWith(".pdf")) {
+                              window.open(m.proofUrl, "_blank");
+                            } else {
+                              setPreviewUrl(m.proofUrl);
+                              setPreviewDetails([
+                                { label: "Transaksi", value: `Stok ${m.type === "IN" ? "Masuk" : "Keluar"}` },
+                                { label: "Barang", value: selectedHistoryItem?.name },
+                                { label: "Jumlah", value: `${m.quantity} ${selectedHistoryItem?.unit?.name || "Unit"}` },
+                                { label: "Tanggal", value: formatDateTime(m.createdAt) },
+                                { label: "Diinput Oleh", value: m.actor?.name },
+                                { label: "Catatan", value: m.note || "-" }
+                              ]);
+                              setIsPreviewOpen(true);
+                            }
+                          }}
+                          className="text-[10px] text-primary hover:underline mt-0.5 inline-block"
+                        >
+                          Lihat Bukti
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="text-[10px] text-muted-foreground">{formatDateTime(m.createdAt)}</div>
@@ -608,6 +777,26 @@ export default function Inventory() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Alert Dialog for Confirm Delete Movement */}
+      <AlertDialog open={isDeleteMovementDialogOpen} onOpenChange={setIsDeleteMovementDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Riwayat Stok?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini akan membatalkan (rollback) efek dari pergerakan stok ini terhadap saldo barang utama dan menghapus riwayatnya dari database.
+              <br/><br/>
+              <span className="font-semibold">{movementToDelete?.item?.name}</span> - {movementToDelete?.type === "IN" ? "Masuk" : "Keluar"} {movementToDelete?.quantity} {movementToDelete?.item?.unit?.name}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteMovement} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Ya, Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Alert Dialog for Confirm Delete */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -627,6 +816,13 @@ export default function Inventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImagePreviewModal 
+        isOpen={isPreviewOpen} 
+        onClose={() => setIsPreviewOpen(false)} 
+        imageUrl={previewUrl} 
+        details={previewDetails}
+      />
     </div>
   );
 }

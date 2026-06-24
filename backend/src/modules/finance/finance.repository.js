@@ -134,12 +134,13 @@ export const financeRepository = {
     };
   },
 
-  createPettyCashTransaction: async ({ amount, type, description }) => {
+  createPettyCashTransaction: async ({ amount, type, description, date }) => {
     return prisma.pettyCashTransaction.create({
       data: {
         amount,
         type,
-        description
+        description,
+        ...(date && { date })
       }
     });
   },
@@ -150,14 +151,21 @@ export const financeRepository = {
     });
   },
 
-  updatePettyCashTransaction: async ({ id, amount, type, description }) => {
+  updatePettyCashTransaction: async ({ id, amount, type, description, date }) => {
     return prisma.pettyCashTransaction.update({
       where: { id },
       data: {
         amount,
         type,
-        description
+        description,
+        ...(date && { date })
       }
+    });
+  },
+
+  deletePettyCashTransaction: async (id) => {
+    return prisma.pettyCashTransaction.delete({
+      where: { id }
     });
   },
 

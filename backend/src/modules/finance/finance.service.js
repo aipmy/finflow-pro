@@ -41,7 +41,7 @@ export const financeService = {
     return financeRepository.getPettyCashData();
   },
 
-  topUpPettyCash: async ({ amount, description, type, user }) => {
+  topUpPettyCash: async ({ amount, description, type, date, user }) => {
     if (user.role !== "finance" && user.role !== "admin") {
       throw { status: 403, message: "Forbidden: Only Finance or Admin can create petty cash transactions" };
     }
@@ -53,11 +53,12 @@ export const financeService = {
     return financeRepository.createPettyCashTransaction({
       amount,
       type: type || "IN",
-      description: description || (type === "OUT" ? "Operational cash expense" : "Top up petty cash")
+      description: description || (type === "OUT" ? "Operational cash expense" : "Top up petty cash"),
+      date: date ? new Date(date) : undefined
     });
   },
 
-  updatePettyCashTransaction: async ({ id, amount, description, type, user }) => {
+  updatePettyCashTransaction: async ({ id, amount, description, type, date, user }) => {
     if (user.role !== "finance" && user.role !== "admin") {
       throw { status: 403, message: "Forbidden: Only Finance or Admin can edit petty cash transactions" };
     }
@@ -79,8 +80,26 @@ export const financeService = {
       id,
       amount,
       type: type || tx.type,
-      description: description || tx.description
+      description: description || tx.description,
+      date: date ? new Date(date) : undefined
     });
+  },
+
+  deletePettyCashTransaction: async ({ id, user }) => {
+    if (user.role !== "admin") {
+      throw { status: 403, message: "Forbidden: Only Admin can delete petty cash transactions" };
+    }
+
+    const tx = await financeRepository.getPettyCashTransaction(id);
+    if (!tx) {
+      throw { status: 404, message: "Transaction not found" };
+    }
+
+    if (tx.refRequestId && tx.refRequestId !== "-") {
+      throw { status: 400, message: "Cannot delete request-based transactions" };
+    }
+
+    return financeRepository.deletePettyCashTransaction(id);
   },
 
   submitProof: async ({ requestId, proofs, actualAmount, user, ipAddress }) => {

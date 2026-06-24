@@ -110,7 +110,7 @@ export const inventoryRepository = {
     });
   },
 
-  createMovement: async ({ itemId, type, quantity, note, actorId, createdAt }) => {
+  createMovement: async ({ itemId, type, quantity, note, proofUrl, actorId, createdAt }) => {
     return prisma.$transaction(async (tx) => {
       // 1. Get the current item to adjust stock
       const item = await tx.item.findUnique({ where: { id: itemId } });
@@ -140,12 +140,109 @@ export const inventoryRepository = {
           type,
           quantity,
           note,
+          proofUrl,
           actorId,
           createdAt: createdAt ? new Date(createdAt) : undefined
         }
       });
 
       return movement;
+    });
+  },
+
+  updateMovement: async (id, data) => {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (!existing) throw new Error("Movement not found");
+
+      // Validasi: saat ini kita hanya support update jika itemId tidak berubah untuk mempermudah.
+      // Jika memang itemId berubah, logikanya akan butuh update 2 item berbeda.
+      // Demi simplisitas, kita asumsikan itemId tetap, hanya qty/type/note/date/proofUrl yang berubah.
+      if (data.itemId && data.itemId !== existing.itemId) {
+        throw new Error("Cannot change the Item of an existing movement. Delete and create a new one instead.");
+      }
+
+      const item = await tx.item.findUnique({ where: { id: existing.itemId } });
+      if (!item) throw new Error("Item not found");
+
+      let currentStock = item.stock;
+
+      // 1. Revert existing movement
+      if (existing.type === "IN") {
+        currentStock -= existing.quantity;
+      } else if (existing.type === "OUT") {
+        currentStock += existing.quantity;
+      }
+
+      // 2. Apply new movement
+      const newType = data.type || existing.type;
+      const newQty = data.quantity !== undefined ? data.quantity : existing.quantity;
+
+      if (newType === "IN") {
+        currentStock += newQty;
+      } else if (newType === "OUT") {
+        currentStock -= newQty;
+      }
+
+      if (currentStock < 0) {
+        throw new Error(`Insufficient stock after update. Resulting stock would be negative.`);
+      }
+
+      // 3. Update stock on Item
+      await tx.item.update({
+        where: { id: existing.itemId },
+        data: { stock: currentStock }
+      });
+
+      // 4. Update movement log
+      const movement = await tx.inventoryMovement.update({
+        where: { id },
+        data: {
+          type: data.type,
+          quantity: data.quantity,
+          note: data.note,
+          proofUrl: data.proofUrl,
+          createdAt: data.createdAt ? new Date(data.createdAt) : undefined
+        }
+      });
+
+      return movement;
+    });
+  },
+
+  deleteMovement: async (id) => {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.inventoryMovement.findUnique({ where: { id } });
+      if (!existing) throw new Error("Movement not found");
+
+      const item = await tx.item.findUnique({ where: { id: existing.itemId } });
+      if (!item) throw new Error("Item not found");
+
+      let nextStock = item.stock;
+
+      // Revert the movement
+      if (existing.type === "IN") {
+        nextStock -= existing.quantity;
+      } else if (existing.type === "OUT") {
+        nextStock += existing.quantity;
+      }
+
+      if (nextStock < 0) {
+        throw new Error(`Cannot delete this IN movement because it would result in negative stock.`);
+      }
+
+      // Update item stock
+      await tx.item.update({
+        where: { id: existing.itemId },
+        data: { stock: nextStock }
+      });
+
+      // Delete movement
+      await tx.inventoryMovement.delete({
+        where: { id }
+      });
+
+      return existing;
     });
   }
 };

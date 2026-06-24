@@ -14,5 +14,7 @@ router.delete("/:id", requirePermission("inventory:write"), inventoryController.
 
 router.get("/movements", requirePermission("inventory:read"), inventoryController.listMovements);
 router.post("/movements", requirePermission("inventory:write"), inventoryController.createMovement);
+router.put("/movements/:id", requirePermission("inventory:write"), inventoryController.updateMovement);
+router.delete("/movements/:id", requirePermission("inventory:write"), inventoryController.deleteMovement);
 
 export default router;

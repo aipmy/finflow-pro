@@ -14,5 +14,6 @@ router.post("/realizations/:requestId/reject-verification", requirePermission("f
 router.get("/petty-cash", requirePermission("request:read"), financeController.getPettyCash);
 router.post("/petty-cash/top-up", requirePermission("finance:realize"), financeController.topUpPettyCash);
 router.put("/petty-cash/:id", requirePermission("finance:realize"), financeController.updatePettyCashTransaction);
+router.delete("/petty-cash/:id", financeController.deletePettyCashTransaction);
 
 export default router;

@@ -244,6 +244,17 @@ export const apiClient = {
         body: JSON.stringify(data)
       });
     },
+    updateMovement: async (id: string, data: any) => {
+      return request(`/inventory/movements/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+    },
+    deleteMovement: async (id: string) => {
+      return request(`/inventory/movements/${id}`, {
+        method: "DELETE"
+      });
+    },
     createItem: async (data: any) => {
       return request("/inventory", {
         method: "POST",
@@ -322,16 +333,21 @@ export const apiClient = {
 
   pettyCash: {
     get: async () => request("/finance/petty-cash"),
-    topUp: async (amount: number, description?: string, type?: string) => {
+    topUp: async (amount: number, description?: string, type?: string, date?: string) => {
       return request("/finance/petty-cash/top-up", {
         method: "POST",
-        body: JSON.stringify({ amount, description, type })
+        body: JSON.stringify({ amount, description, type, date })
       });
     },
-    update: async (id: string, amount: number, description?: string, type?: string) => {
+    update: async (id: string, amount: number, description?: string, type?: string, date?: string) => {
       return request(`/finance/petty-cash/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ amount, description, type })
+        body: JSON.stringify({ amount, description, type, date })
+      });
+    },
+    delete: async (id: string) => {
+      return request(`/finance/petty-cash/${id}`, {
+        method: "DELETE"
       });
     }
   },

@@ -24,7 +24,7 @@ export default function RequestNew() {
   const [desc, setDesc] = useState("");
   const [dept, setDept] = useState("");
   const [site, setSite] = useState("");
-  const [items, setItems] = useState<any[]>([{ name: "", qty: 1, unitId: "", categoryId: "", price: 0 }]);
+  const [items, setItems] = useState<any[]>([{ name: "", qty: "", unitId: "", categoryId: "", price: 0 }]);
 
   // Perjalanan Dinas Dates
   const [departureDate, setDepartureDate] = useState("");
@@ -82,7 +82,7 @@ export default function RequestNew() {
           
           const defaultCatId = cats.length > 0 ? cats[0].id : "";
           const defaultUnitId = uns.length > 0 ? uns[0].id : "";
-          setItems([{ name: "", qty: 1, unitId: defaultUnitId, categoryId: defaultCatId, price: 0 }]);
+          setItems([{ name: "", qty: "", unitId: defaultUnitId, categoryId: defaultCatId, price: 0 }]);
         }
       } catch (err: any) {
         toast.error("Gagal memuat data: " + err.message);
@@ -113,7 +113,7 @@ export default function RequestNew() {
     const defaultUnitId = units.length > 0 ? units[0].id : "";
     const dinasCat = type === "PERJALANAN_DINAS" ? categories.find(c => c.name.toLowerCase() === "perjalanan dinas") : null;
     const defaultCatId = dinasCat ? dinasCat.id : (categories.length > 0 ? categories[0].id : "");
-    setItems(prev => [...prev, { name: "", qty: 1, unitId: defaultUnitId, categoryId: defaultCatId, price: 0 }]);
+    setItems(prev => [...prev, { name: "", qty: "", unitId: defaultUnitId, categoryId: defaultCatId, price: 0 }]);
     
     // Auto-scroll to newly added item
     setTimeout(() => {
@@ -334,8 +334,11 @@ export default function RequestNew() {
                   <Input
                     type="number"
                     className="mt-1 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    value={it.qty || 1}
-                    onChange={e => setItem(i, "qty", Math.max(1, parseInt(e.target.value) || 1))}
+                    value={it.qty}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setItem(i, "qty", val === "" ? "" : Math.max(0, parseInt(val) || 0));
+                    }}
                   />
                 </div>
                 <div className="col-span-4 md:col-span-2">
