@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, ArrowDown, ArrowUp, AlertTriangle, Package, Trash2, Camera, FileImage } from "lucide-react";
+import { Search, Plus, ArrowDown, ArrowUp, AlertTriangle, Package, Trash2, Camera, FileImage, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,7 @@ export default function Inventory() {
   const [newItemUnit, setNewItemUnit] = useState("");
   const [newItemStock, setNewItemStock] = useState("0");
   const [newItemMinStock, setNewItemMinStock] = useState("0");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // Form State - Stock Movement
   const [editingMovementId, setEditingMovementId] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export default function Inventory() {
   
   const lowCount = items.filter(i => i.stock < i.minStock).length;
 
-  const handleCreateItem = async () => {
+  const handleSaveItem = async () => {
     if (!newItemName || !newItemSku) {
       toast.error("Nama barang dan SKU wajib diisi");
       return;
@@ -146,7 +147,7 @@ export default function Inventory() {
 
     setIsSubmitting(true);
     try {
-      await apiClient.inventory.createItem({
+      const payload = {
         name: newItemName,
         sku: newItemSku,
         categoryId: newItemCat || undefined,
@@ -154,8 +155,15 @@ export default function Inventory() {
         unitId: newItemUnit || undefined,
         stock: parseInt(newItemStock, 10) || 0,
         minStock: parseInt(newItemMinStock, 10) || 0
-      });
-      toast.success("Barang baru berhasil ditambahkan");
+      };
+
+      if (editingItemId) {
+        await apiClient.inventory.updateItem(editingItemId, payload);
+        toast.success("Barang berhasil diperbarui");
+      } else {
+        await apiClient.inventory.createItem(payload);
+        toast.success("Barang baru berhasil ditambahkan");
+      }
       
       // Reset Form
       setNewItemName("");
@@ -165,6 +173,7 @@ export default function Inventory() {
       setNewItemUnit("");
       setNewItemStock("0");
       setNewItemMinStock("0");
+      setEditingItemId(null);
       setIsNewItemOpen(false);
 
       loadData();
@@ -173,6 +182,18 @@ export default function Inventory() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEditItem = (item: any) => {
+    setEditingItemId(item.id);
+    setNewItemName(item.name);
+    setNewItemSku(item.sku);
+    setNewItemCat(item.categoryId || "");
+    setNewItemLoc(item.locationId || "");
+    setNewItemUnit(item.unitId || "");
+    setNewItemStock(item.stock.toString());
+    setNewItemMinStock(item.minStock.toString());
+    setIsNewItemOpen(true);
   };
 
   const handleSaveMovement = async () => {
@@ -427,7 +448,19 @@ export default function Inventory() {
           </Dialog>
 
           {/* New Item Dialog Trigger */}
-          <Dialog open={isNewItemOpen} onOpenChange={setIsNewItemOpen}>
+          <Dialog open={isNewItemOpen} onOpenChange={(open) => {
+            setIsNewItemOpen(open);
+            if (!open) {
+              setEditingItemId(null);
+              setNewItemName("");
+              setNewItemSku("");
+              setNewItemCat("");
+              setNewItemLoc("");
+              setNewItemUnit("");
+              setNewItemStock("0");
+              setNewItemMinStock("0");
+            }
+          }}>
             <DialogTrigger asChild>
               <Button size="sm" className="gradient-primary text-primary-foreground">
                 <Plus className="h-4 w-4 mr-1.5" />Item Baru
@@ -435,8 +468,8 @@ export default function Inventory() {
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Tambah Barang Baru</DialogTitle>
-                <DialogDescription>Tambahkan barang baru ke database master.</DialogDescription>
+                <DialogTitle>{editingItemId ? "Edit Barang" : "Tambah Barang Baru"}</DialogTitle>
+                <DialogDescription>{editingItemId ? "Perbarui informasi barang di inventaris." : "Masukkan detail barang untuk didaftarkan."}</DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -490,7 +523,7 @@ export default function Inventory() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleCreateItem} className="gradient-primary text-primary-foreground" disabled={isSubmitting}>
+                <Button onClick={handleSaveItem} className="gradient-primary text-primary-foreground" disabled={isSubmitting}>
                   {isSubmitting ? "Menyimpan..." : "Simpan Barang"}
                 </Button>
               </DialogFooter>
@@ -563,14 +596,24 @@ export default function Inventory() {
                         Riwayat
                       </Button>
                       {isAdmin && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" 
-                          onClick={() => { setItemToDelete(i); setIsDeleteDialogOpen(true); }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-600" 
+                            onClick={() => handleEditItem(i)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" 
+                            onClick={() => { setItemToDelete(i); setIsDeleteDialogOpen(true); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
                       )}
                     </td>
                   </tr>
