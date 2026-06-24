@@ -12,18 +12,9 @@ export const requestService = {
     }
 
     // Role-based visibility check
-    if (user.role !== "admin" && user.role !== "finance" && user.role !== "auditor") {
-      if (request.requesterId !== user.userId) {
-        if (user.role === "supervisor" && request.siteId !== user.siteId) {
-          throw { status: 403, message: "Access denied to requests outside your site" };
-        }
-        if (user.role === "manager" && request.departmentId !== user.departmentId) {
-          throw { status: 403, message: "Access denied to requests outside your department" };
-        }
-        if (user.role === "staff") {
-          throw { status: 403, message: "Access denied to view this request" };
-        }
-      }
+    // Only staff is restricted to viewing their own requests
+    if (user.role === "staff" && request.requesterId !== user.userId) {
+      throw { status: 403, message: "Access denied to view this request" };
     }
 
     return request;
