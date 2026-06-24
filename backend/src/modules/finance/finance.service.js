@@ -3,9 +3,9 @@ import { financeRepository } from "./finance.repository.js";
 
 export const financeService = {
   realize: async ({ requestId, realizedAmount, receiptUrl, notes, user, ipAddress }) => {
-    // Only finance or admin can realize requests
-    if (user.role !== "finance" && user.role !== "admin") {
-      throw { status: 403, message: "Forbidden: Only Finance or Admin can process realizations" };
+    // Only finance, admin, or supervisor can realize requests
+    if (user.role !== "finance" && user.role !== "admin" && user.role !== "supervisor") {
+      throw { status: 403, message: "Forbidden: Only Finance, Admin, or Supervisor can process realizations" };
     }
 
     const request = await requestRepository.get(requestId);
@@ -33,11 +33,7 @@ export const financeService = {
   },
 
   getPettyCash: async (user) => {
-    // Finance, Admin, or Auditor can view petty cash details
-    if (user.role !== "finance" && user.role !== "admin" && user.role !== "auditor") {
-      throw { status: 403, message: "Forbidden: You do not have permission to view petty cash" };
-    }
-
+    // All roles can view petty cash details
     return financeRepository.getPettyCashData();
   },
 

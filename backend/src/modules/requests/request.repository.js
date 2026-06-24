@@ -26,20 +26,10 @@ export const requestRepository = {
     }
 
     // Role-based data scoping
-    // Admin, Finance, and Auditor can see all requests
-    if (user.role !== "admin" && user.role !== "finance" && user.role !== "auditor") {
-      // Supervisor can see requests from their Site
-      if (user.role === "supervisor") {
-        where.siteId = user.siteId || "non-existent-id";
-      }
-      // Manager can see requests from their Department
-      else if (user.role === "manager") {
-        where.departmentId = user.departmentId || "non-existent-id";
-      }
-      // Staff/Teknisi can only see their own requests
-      else {
-        where.requesterId = user.userId;
-      }
+    // Admin, Finance, Auditor, Supervisor, Manager can see all requests
+    // Staff/Teknisi can only see their own requests
+    if (user.role === "staff") {
+      where.requesterId = user.userId;
     }
 
     return prisma.request.findMany({

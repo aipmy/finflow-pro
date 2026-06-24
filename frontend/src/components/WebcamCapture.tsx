@@ -15,14 +15,15 @@ export function WebcamCapture({ onCapture, onCancel }: WebcamCaptureProps) {
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
+        video: { facingMode: { ideal: "environment" } }
       });
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
     } catch (err: any) {
-      setError("Gagal mengakses kamera. Pastikan izin kamera telah diberikan.");
+      console.error(err);
+      setError("Gagal mengakses kamera. Pastikan izin kamera telah diberikan dan perangkat memiliki kamera.");
     }
   };
 

@@ -8,9 +8,12 @@ import { ThemeToggle, useTheme } from "@/components/ThemeToggle";
 import { Plus, Building2, MapPin, Tag, Edit, Trash2, Loader2, X } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
+import { useAuth } from "@/stores/authStore";
 
 export default function Settings() {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [departmentsList, setDepartmentsList] = useState<any[]>([]);
   const [sitesList, setSitesList] = useState<any[]>([]);
   const [categoriesList, setCategoriesList] = useState<any[]>([]);
@@ -203,22 +206,26 @@ export default function Settings() {
             <CardTitle className="text-base flex items-center gap-2">
               <Building2 className="h-4 w-4 text-primary" />Departemen
             </CardTitle>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleOpenAdd("dept")}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            {isAdmin && (
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleOpenAdd("dept")}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-1">
             {departmentsList.map(d => (
               <div key={d.id} className="text-sm py-1.5 px-2 rounded hover:bg-muted/50 flex items-center justify-between group">
                 <span className="truncate pr-2">{d.name}</span>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEdit("dept", d)}>
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleOpenDelete("dept", d)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEdit("dept", d)}>
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleOpenDelete("dept", d)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
             {departmentsList.length === 0 && (
@@ -233,22 +240,26 @@ export default function Settings() {
             <CardTitle className="text-base flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />Site
             </CardTitle>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleOpenAdd("site")}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            {isAdmin && (
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleOpenAdd("site")}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-1">
             {sitesList.map(s => (
               <div key={s.id} className="text-sm py-1.5 px-2 rounded hover:bg-muted/50 flex items-center justify-between group">
                 <span className="truncate pr-2">{s.name}</span>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEdit("site", s)}>
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleOpenDelete("site", s)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEdit("site", s)}>
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleOpenDelete("site", s)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
             {sitesList.length === 0 && (
@@ -263,22 +274,26 @@ export default function Settings() {
             <CardTitle className="text-base flex items-center gap-2">
               <Tag className="h-4 w-4 text-primary" />Kategori
             </CardTitle>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleOpenAdd("cat")}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            {isAdmin && (
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleOpenAdd("cat")}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-1">
             {categoriesList.map(c => (
               <div key={c.id} className="text-sm py-1.5 px-2 rounded hover:bg-muted/50 flex items-center justify-between group">
                 <span className="truncate pr-2">{c.name}</span>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEdit("cat", c)}>
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleOpenDelete("cat", c)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEdit("cat", c)}>
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleOpenDelete("cat", c)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
             {categoriesList.length === 0 && (

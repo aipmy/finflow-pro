@@ -370,12 +370,32 @@ export default function Inventory() {
               }
             }}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline" onClick={() => setMovType("IN")}>
+              <Button size="sm" variant="outline" onClick={() => {
+                setEditingMovementId(null);
+                setMovItem("");
+                setMovQty("");
+                setMovNote("");
+                setMovDate(getCurrentDateString());
+                setMovTime(getCurrentTimeString());
+                setMovProof(null);
+                setMovProofUrl("");
+                setMovType("IN");
+              }}>
                 <ArrowDown className="h-4 w-4 mr-1.5" />Stock In
               </Button>
             </DialogTrigger>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline" onClick={() => setMovType("OUT")}>
+              <Button size="sm" variant="outline" onClick={() => {
+                setEditingMovementId(null);
+                setMovItem("");
+                setMovQty("");
+                setMovNote("");
+                setMovDate(getCurrentDateString());
+                setMovTime(getCurrentTimeString());
+                setMovProof(null);
+                setMovProofUrl("");
+                setMovType("OUT");
+              }}>
                 <ArrowUp className="h-4 w-4 mr-1.5" />Stock Out
               </Button>
             </DialogTrigger>

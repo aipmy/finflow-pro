@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/stores/authStore";
 import {
   TrendingUp, TrendingDown, Wallet, AlertCircle,
   CheckCircle2, Clock, FileText, Coins, ArrowRight, Package
@@ -30,6 +31,9 @@ export default function Dashboard() {
   const [pettyCash, setPettyCash] = useState<any>({ balance: 0, initial: 0, transactions: [] });
   const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const { user } = useAuth();
+  const isStaff = user?.role === "staff";
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -226,7 +230,12 @@ export default function Dashboard() {
   };
   const monthlyTrend = getMonthlyTrend();
 
-  const stats = [
+  const stats = isStaff ? [
+    { label: "Total Pengajuan Saya", value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
+    { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
+    { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
+    { label: "Menunggu Approval", value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
+  ] : [
     { label: "Total Pengajuan Bulan Ini", value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
     { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
     { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
@@ -270,6 +279,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row */}
+      {!isStaff && (
       <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 shadow-elegant">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -362,6 +372,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Bottom lists grid */}
       <div className="grid lg:grid-cols-2 gap-4">

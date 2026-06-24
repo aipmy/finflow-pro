@@ -76,7 +76,7 @@ export const can = (role: string | undefined, perm: string): boolean => {
     "settings.manage": ["admin"],
     "request.create": ["admin", "staff", "supervisor", "manager", "finance"],
     "request.approve": ["supervisor", "manager", "admin", "finance"],
-    "finance.realize": ["finance", "admin"],
+    "finance.realize": ["finance", "admin", "supervisor"],
     "finance.verify": ["finance", "admin", "supervisor"],
     "audit.view": ["admin", "auditor", "finance"],
     "reports.view": ["admin", "finance", "manager", "supervisor", "auditor"],
