@@ -24,7 +24,7 @@ const sumBy = <T,>(arr: T[], pred: (x: T) => boolean, val: (x: T) => number) =>
 
 export default function Dashboard() {
   const [requests, setRequests] = useState<any[]>([]);
-  const [trendPeriod, setTrendPeriod] = useState<string>("6_months");
+  const [trendPeriod, setTrendPeriod] = useState<string>(new Date().getFullYear().toString());
   const [categories, setCategories] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [sites, setSites] = useState<any[]>([]);
@@ -32,13 +32,16 @@ export default function Dashboard() {
   const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+
   const { user } = useAuth();
   const isStaff = user?.role === "staff";
 
   useEffect(() => {
-    async function loadDashboardData() {
+    async function loadDashboardData(silent = false) {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const [reqs, cats, depts, sts, pettyCashRes, itemsRes] = await Promise.all([
           apiClient.requests.list(),
           apiClient.meta.categories(),
@@ -57,54 +60,79 @@ export default function Dashboard() {
           setLowStockCount(count);
         }
       } catch (err: any) {
-        toast.error("Gagal memuat data dashboard: " + err.message);
+        if (!silent) toast.error("Gagal memuat data dashboard: " + err.message);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     }
     loadDashboardData();
+
+    const interval = setInterval(() => {
+      loadDashboardData(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const isCurrentMonth = (dateStr: string) => {
+  useEffect(() => {
+    if (selectedMonth === "all") {
+      setTrendPeriod(selectedYear);
+    } else {
+      setTrendPeriod("1_month");
+    }
+  }, [selectedMonth, selectedYear]);
+
+  const isSelectedPeriod = (dateStr: string) => {
+    if (!dateStr) return false;
     const d = new Date(dateStr);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    const yearMatch = d.getFullYear().toString() === selectedYear;
+    if (selectedMonth === "all") {
+      return yearMatch;
+    }
+    return yearMatch && d.getMonth().toString() === selectedMonth;
   };
 
   const manualPettyCashOut = (pettyCash.transactions || []).filter((t: any) => 
     t.type === "OUT" && (!t.refRequestId || t.refRequestId === "-" || t.refRequestId === "")
   );
 
-  const manualRealized = manualPettyCashOut.reduce((acc: number, t: any) => acc + Number(t.amount), 0);
+  const manualRealized = manualPettyCashOut
+    .filter((t: any) => isSelectedPeriod(t.createdAt))
+    .reduce((acc: number, t: any) => acc + Number(t.amount), 0);
 
-  const total = sumBy(requests, r => r.status !== "DRAFT" && isCurrentMonth(r.createdAt), r => Number(r.amount));
-  const approved = sumBy(requests, r => ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "WAITING_VERIFICATION", "CLOSED"].includes(r.status), r => Number(r.amount));
-  const rejected = sumBy(requests, r => r.status === "REJECTED", r => Number(r.amount));
-  const realized = sumBy(requests, r => !!r.financeRealization, r => Number(r.financeRealization?.realizedAmount || 0)) + manualRealized;
-  const outstanding = approved - sumBy(requests, r => !!r.financeRealization, r => Number(r.financeRealization?.realizedAmount || 0));
-  const pending = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status)).length;
+  const total = sumBy(requests, r => r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount));
+  const approved = sumBy(requests, r => ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "WAITING_VERIFICATION", "CLOSED"].includes(r.status) && isSelectedPeriod(r.createdAt), r => Number(r.amount));
+  const rejected = sumBy(requests, r => r.status === "REJECTED" && isSelectedPeriod(r.createdAt), r => Number(r.amount));
+  
+  // Realized requests filter
+  const realized = sumBy(requests, r => !!r.financeRealization && isSelectedPeriod(r.financeRealization.createdAt), r => Number(r.financeRealization?.realizedAmount || 0)) + manualRealized;
+  
+  const outstanding = approved - sumBy(requests, r => !!r.financeRealization && isSelectedPeriod(r.financeRealization.createdAt), r => Number(r.financeRealization?.realizedAmount || 0));
+  const pending = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status) && isSelectedPeriod(r.createdAt)).length;
   
   // Total nominal Rupiah pending approval
-  const pendingAmount = sumBy(requests, r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status), r => Number(r.amount));
+  const pendingAmount = sumBy(requests, r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status) && isSelectedPeriod(r.createdAt), r => Number(r.amount));
   
   // New counts for Dashboard metrics
-  const newSubmissionsCount = requests.filter(r => r.status !== "DRAFT" && isCurrentMonth(r.createdAt)).length;
-  const needRevisionCount = requests.filter(r => r.status === "NEED_REVISION").length;
+  const newSubmissionsCount = requests.filter(r => r.status !== "DRAFT" && isSelectedPeriod(r.createdAt)).length;
+  const needRevisionCount = requests.filter(r => r.status === "NEED_REVISION" && isSelectedPeriod(r.createdAt)).length;
 
-  // Only count approved/realized requests in the current month for monthly expenses based on realization/approval date
+  // Only count approved/realized requests in the selected period for monthly expenses based on realization/approval date
   const totalExpensesMonth = sumBy(requests, r => {
     if (!["REALIZED", "CLOSED"].includes(r.status)) return false;
     if (r.financeRealization) {
-      return isCurrentMonth(r.financeRealization.createdAt);
+      return isSelectedPeriod(r.financeRealization.createdAt);
     }
-    return isCurrentMonth(r.updatedAt);
-  }, r => Number(r.financeRealization?.realizedAmount || r.amount));
+    return isSelectedPeriod(r.updatedAt);
+  }, r => Number(r.financeRealization?.realizedAmount || r.amount)) + manualRealized;
 
   const byCategory = categories.map(c => {
     let sum = 0;
     requests.forEach(r => {
       // Only include realized/closed requests in category distribution
       if (!["REALIZED", "CLOSED"].includes(r.status)) return;
+      const realizedDate = r.financeRealization ? r.financeRealization.createdAt : r.updatedAt;
+      if (!isSelectedPeriod(realizedDate)) return;
       if (r.items && r.items.length > 0) {
         r.items.forEach((it: any) => {
           if (it.categoryId === c.id) {
@@ -116,6 +144,7 @@ export default function Dashboard() {
       }
     });
     manualPettyCashOut.forEach((t: any) => {
+      if (!isSelectedPeriod(t.createdAt)) return;
       const match = t.description.match(/^\[(.*?)\] (.*)$/);
       const catName = match ? match[1] : null;
       if (catName === c.name) {
@@ -126,7 +155,7 @@ export default function Dashboard() {
   }).filter(x => x.value > 0);
 
   const uncategorizedManualSum = manualPettyCashOut
-    .filter((t: any) => !t.description.match(/^\[(.*?)\] (.*)$/))
+    .filter((t: any) => !t.description.match(/^\[(.*?)\] (.*)$/) && isSelectedPeriod(t.createdAt))
     .reduce((acc: number, t: any) => acc + Number(t.amount), 0);
 
   if (uncategorizedManualSum > 0) {
@@ -135,7 +164,7 @@ export default function Dashboard() {
 
   const byDept = departments.map(d => ({
     name: d.name,
-    value: sumBy(requests, r => r.departmentId === d.id && r.status !== "DRAFT", r => Number(r.amount)),
+    value: sumBy(requests, r => r.departmentId === d.id && r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount)),
   })).filter(x => x.value > 0);
 
   if (manualRealized > 0) {
@@ -144,7 +173,7 @@ export default function Dashboard() {
 
   const bySite = sites.map(s => ({
     name: s.name.replace("Site ", ""),
-    value: sumBy(requests, r => r.siteId === s.id && r.status !== "DRAFT", r => Number(r.amount)),
+    value: sumBy(requests, r => r.siteId === s.id && r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount)),
   })).filter(x => x.value > 0);
 
   if (manualRealized > 0) {
@@ -171,41 +200,68 @@ export default function Dashboard() {
   };
 
   const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
+  const periodName = selectedMonth === "all" ? `Tahun ${selectedYear}` : `${months[parseInt(selectedMonth)]} ${selectedYear}`;
+
+  const stats = isStaff ? [
+    { label: `Total Pengajuan Saya (${periodName})`, value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
+    { label: `Total Disetujui (${periodName})`, value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
+    { label: `Menunggu Approval (${periodName})`, value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
+    { label: `Perlu Tindakan / Revisi (${periodName})`, value: `${needRevisionCount} pengajuan`, icon: AlertCircle, trend: "revisi", up: false, color: "destructive" },
+  ] : [
+    { label: `Total Pengeluaran (${periodName})`, value: formatRupiah(totalExpensesMonth), icon: FileText, trend: "realisasi", up: true, color: "primary" },
+    { label: `Nominal Menunggu Approval (${periodName})`, value: formatRupiah(pendingAmount), icon: Clock, trend: `${pending} pengajuan`, up: false, color: "warning" },
+    { label: `Total Pengajuan Baru (${periodName})`, value: `${newSubmissionsCount} pengajuan`, icon: FileText, trend: "aktif", up: true, color: "info" },
+    { label: `Outstanding (${periodName})`, value: formatRupiah(outstanding), icon: Clock, trend: "pending", up: false, color: "warning" },
+    { label: "Sisa Petty Cash", value: formatRupiah(pettyCash.balance), icon: Coins, trend: pettyCash.initial > 0 ? `${Math.round(pettyCash.balance / pettyCash.initial * 100)}%` : "0%", up: true, color: "accent" },
+    { label: "Stok Hampir Habis", value: `${lowStockCount} item`, icon: Package, trend: "perlu restock", up: false, color: "destructive" },
+    { label: `Total Disetujui (${periodName})`, value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
+    { label: `Total Ditolak (${periodName})`, value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-2">
+        <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+        <p className="text-sm text-muted-foreground">Memuat dashboard...</p>
+      </div>
+    );
+  }
+
   const getMonthlyTrend = () => {
     const trend = [];
-    const now = new Date();
+    const year = parseInt(selectedYear, 10);
+    const targetMonth = selectedMonth === "all" ? new Date().getMonth() : parseInt(selectedMonth, 10);
     
     if (trendPeriod === "6_months") {
+      const now = new Date();
       for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mIndex = d.getMonth();
         const mName = months[mIndex];
-        const year = d.getFullYear();
+        const y = d.getFullYear();
         
         const sum = requests
           .filter(r => {
             const rDate = new Date(r.createdAt);
-            return rDate.getMonth() === mIndex && rDate.getFullYear() === year && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status);
+            return rDate.getMonth() === mIndex && rDate.getFullYear() === y && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status);
           })
           .reduce((acc, r) => acc + Number(r.amount), 0);
 
         const pcSum = manualPettyCashOut
           .filter(t => {
             const tDate = new Date(t.createdAt);
-            return tDate.getMonth() === mIndex && tDate.getFullYear() === year;
+            return tDate.getMonth() === mIndex && tDate.getFullYear() === y;
           })
           .reduce((acc, t) => acc + Number(t.amount), 0);
           
         trend.push({ month: `${mName}`, value: sum + pcSum });
       }
     } else if (trendPeriod === "1_month") {
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
       for (let w = 1; w <= 4; w++) {
         const sum = requests
           .filter(r => {
             const rDate = new Date(r.createdAt);
-            if (rDate.getFullYear() !== currentYear || rDate.getMonth() !== currentMonth) return false;
+            if (rDate.getFullYear() !== year || rDate.getMonth() !== targetMonth) return false;
             if (!["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status)) return false;
             const day = rDate.getDate();
             if (w === 1) return day >= 1 && day <= 7;
@@ -218,7 +274,7 @@ export default function Dashboard() {
         const pcSum = manualPettyCashOut
           .filter(t => {
             const tDate = new Date(t.createdAt);
-            if (tDate.getFullYear() !== currentYear || tDate.getMonth() !== currentMonth) return false;
+            if (tDate.getFullYear() !== year || tDate.getMonth() !== targetMonth) return false;
             const day = tDate.getDate();
             if (w === 1) return day >= 1 && day <= 7;
             if (w === 2) return day >= 8 && day <= 14;
@@ -230,19 +286,19 @@ export default function Dashboard() {
         trend.push({ month: `Mng ${w}`, value: sum + pcSum });
       }
     } else {
-      const year = parseInt(trendPeriod, 10);
+      const targetYear = parseInt(trendPeriod, 10) || year;
       for (let m = 0; m < 12; m++) {
         const sum = requests
           .filter(r => {
             const rDate = new Date(r.createdAt);
-            return rDate.getFullYear() === year && rDate.getMonth() === m && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status);
+            return rDate.getFullYear() === targetYear && rDate.getMonth() === m && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status);
           })
           .reduce((acc, r) => acc + Number(r.amount), 0);
 
         const pcSum = manualPettyCashOut
           .filter(t => {
             const tDate = new Date(t.createdAt);
-            return tDate.getFullYear() === year && tDate.getMonth() === m;
+            return tDate.getFullYear() === targetYear && tDate.getMonth() === m;
           })
           .reduce((acc, t) => acc + Number(t.amount), 0);
           
@@ -253,33 +309,45 @@ export default function Dashboard() {
   };
   const monthlyTrend = getMonthlyTrend();
 
-  const stats = isStaff ? [
-    { label: "Total Pengajuan Saya (Bulan Ini)", value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
-    { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
-    { label: "Menunggu Approval", value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
-    { label: "Perlu Tindakan / Revisi", value: `${needRevisionCount} pengajuan`, icon: AlertCircle, trend: "revisi", up: false, color: "destructive" },
-  ] : [
-    { label: "Total Pengeluaran Bulan Ini", value: formatRupiah(totalExpensesMonth), icon: FileText, trend: "realisasi", up: true, color: "primary" },
-    { label: "Nominal Menunggu Approval", value: formatRupiah(pendingAmount), icon: Clock, trend: `${pending} pengajuan`, up: false, color: "warning" },
-    { label: "Total Pengajuan Baru (Bulan Ini)", value: `${newSubmissionsCount} pengajuan`, icon: FileText, trend: "aktif", up: true, color: "info" },
-    { label: "Outstanding (Menunggu Pembayaran)", value: formatRupiah(outstanding), icon: Clock, trend: "pending", up: false, color: "warning" },
-    { label: "Sisa Petty Cash", value: formatRupiah(pettyCash.balance), icon: Coins, trend: pettyCash.initial > 0 ? `${Math.round(pettyCash.balance / pettyCash.initial * 100)}%` : "0%", up: true, color: "accent" },
-    { label: "Stok Hampir Habis", value: `${lowStockCount} item`, icon: Package, trend: "perlu restock", up: false, color: "destructive" },
-    { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
-    { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
-  ];
-
-  if (loading) {
-    return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-2">
-        <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-        <p className="text-sm text-muted-foreground">Memuat dashboard...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-[1600px] mx-auto">
+      {/* Header with Period Selectors */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-xs text-muted-foreground">Ringkasan aktivitas dan kinerja keuangan</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[140px] h-9 text-xs">
+              <SelectValue placeholder="Pilih Bulan" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Bulan</SelectItem>
+              {months.map((m, idx) => (
+                <SelectItem key={idx} value={idx.toString()}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[110px] h-9 text-xs">
+              <SelectValue placeholder="Pilih Tahun" />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from(
+                new Set([new Date().getFullYear(), ...requests.map(r => new Date(r.createdAt).getFullYear())])
+              )
+                .sort((a, b) => b - a)
+                .map(y => (
+                  <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                ))
+              }
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
         {stats.map(s => (
@@ -317,7 +385,7 @@ export default function Dashboard() {
                 <SelectValue placeholder="Pilih periode" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1_month">1 Bulan</SelectItem>
+                <SelectItem value="1_month">Bulan Ini</SelectItem>
                 <SelectItem value="6_months">6 Bulan</SelectItem>
                 {Array.from(
                   new Set([new Date().getFullYear(), ...requests.map(r => new Date(r.createdAt).getFullYear())])
@@ -379,16 +447,36 @@ export default function Dashboard() {
                      />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="space-y-1.5 mt-3">
-                  {byCategory.slice(0, 4).map((c, i) => (
-                    <div key={c.name} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                        <span className="truncate">{c.name}</span>
-                      </div>
-                      <span className="text-muted-foreground font-mono text-[10px]">{formatRupiah(c.value)}</span>
-                    </div>
-                  ))}
+                <div className="space-y-1.5 mt-3 max-h-[140px] overflow-y-auto pr-1">
+                  {(() => {
+                    const totalCat = byCategory.reduce((acc: number, curr: any) => acc + curr.value, 0);
+                    return (
+                      <>
+                        <div className="space-y-1.5 pb-2">
+                          {byCategory.map((c, i) => {
+                            const rawPct = totalCat > 0 ? (c.value / totalCat) * 100 : 0;
+                            const pct = rawPct % 1 === 0 ? rawPct.toFixed(0) : rawPct.toFixed(1);
+                            return (
+                              <div key={c.name} className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                                  <span className="truncate text-foreground font-medium">{c.name}</span>
+                                </div>
+                                <div className="flex items-center gap-4 flex-shrink-0 font-mono text-[10px]">
+                                  <span className="text-muted-foreground">{pct}%</span>
+                                  <span className="text-foreground font-semibold">{formatRupiah(c.value)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="border-t border-border/80 my-2 pt-2.5 flex items-center justify-between text-xs font-bold">
+                          <span className="text-foreground">Total</span>
+                          <span className="text-primary font-mono text-[11px]">{formatRupiah(totalCat)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </>
             )}

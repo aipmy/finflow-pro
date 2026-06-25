@@ -137,6 +137,47 @@ export async function getAggregates(filters = {}) {
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
+  // Compile all transactions (Requests + Petty Cash) to find the largest expenses and spender stats
+  const mergedTx = [
+    ...requests.map(r => ({
+      title: r.title,
+      code: r.code,
+      amount: Number(r.financeRealization?.realizedAmount || r.amount),
+      requesterName: r.requester?.name || "Unknown User",
+      categoryName: r.category?.name || (r.items && r.items.length > 0 ? r.items.find(it => it.category?.name)?.category?.name : null) || "Tidak Terkategori",
+      date: r.financeRealization?.createdAt || r.createdAt
+    })),
+    ...pettyCashTx.map(t => {
+      const match = t.description.match(/^\[(.*?)\] (.*)$/);
+      const catName = match ? match[1] : "Tidak Terkategori";
+      const descName = match ? match[2] : t.description;
+      return {
+        title: descName,
+        code: `PC-${t.id}`,
+        amount: Number(t.amount),
+        requesterName: "Kas Kecil (Manual)",
+        categoryName: catName,
+        date: t.createdAt
+      };
+    })
+  ];
+
+  const topRequests = [...mergedTx]
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 10);
+
+  const spenderMap = {};
+  mergedTx.forEach(tx => {
+    const name = tx.requesterName;
+    if (!spenderMap[name]) {
+      spenderMap[name] = { name, value: 0, count: 0 };
+    }
+    spenderMap[name].value += tx.amount;
+    spenderMap[name].count += 1;
+  });
+  const topSpenders = Object.values(spenderMap)
+    .sort((a, b) => b.value - a.value);
+
   const allRequestsForYears = await prisma.request.findMany({
     select: { createdAt: true },
     where: { status: { in: ["REALIZED", "CLOSED"] } }
@@ -150,6 +191,8 @@ export async function getAggregates(filters = {}) {
     byDept,
     bySite,
     byUser,
+    topRequests,
+    topSpenders,
     years
   };
 }

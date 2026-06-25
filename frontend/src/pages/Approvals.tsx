@@ -15,18 +15,24 @@ export default function Approvals() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadRequests() {
+    async function loadRequests(silent = false) {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const res = await apiClient.requests.list();
         setRequests(res);
       } catch (err: any) {
-        toast.error("Gagal memuat pengajuan approval: " + err.message);
+        if (!silent) toast.error("Gagal memuat pengajuan approval: " + err.message);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     }
     loadRequests();
+
+    const interval = setInterval(() => {
+      loadRequests(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const pending = requests.filter(r => {

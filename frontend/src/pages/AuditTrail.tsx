@@ -30,9 +30,9 @@ export default function AuditTrail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadData(silent = false) {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const [logsRes, usersRes] = await Promise.all([
           apiClient.audit.list(),
           apiClient.users.list()
@@ -40,12 +40,18 @@ export default function AuditTrail() {
         setLogs(logsRes);
         setUsers(usersRes);
       } catch (err: any) {
-        toast.error("Gagal memuat log audit: " + err.message);
+        if (!silent) toast.error("Gagal memuat log audit: " + err.message);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     }
     loadData();
+
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const list = useMemo(() => {

@@ -67,6 +67,59 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   });
   const dept = departments.find(d => d.id === user?.department)?.name;
 
+  const [badgeCounts, setBadgeCounts] = useState<{ approvals: number; lowStock: number; revisions: number }>({ approvals: 0, lowStock: 0, revisions: 0 });
+
+  useEffect(() => {
+    async function fetchBadgeCounts() {
+      try {
+        const [reqs, items] = await Promise.all([
+          apiClient.requests.list().catch(() => []),
+          apiClient.inventory.list().catch(() => [])
+        ]);
+
+        const role = user?.role?.toLowerCase() || "";
+        
+        // Approvals count
+        const approvals = reqs.filter((r: any) => {
+          if (r.status === "SUBMITTED") {
+            return ["supervisor", "manager", "finance", "admin"].includes(role);
+          }
+          if (r.status === "APPROVED_BY_SUPERVISOR") {
+            return ["finance", "admin"].includes(role);
+          }
+          return false;
+        }).length;
+
+        // Low stock count
+        const lowStock = items.filter((item: any) => item.stock <= item.minStock).length;
+
+        // Revisions count (revisions waiting action)
+        const revisions = reqs.filter((r: any) => {
+          if (r.status !== "NEED_REVISION") return false;
+          if (role === "staff") return r.requesterId === user?.id || r.requesterId === user?.userId;
+          return true;
+        }).length;
+
+        setBadgeCounts({ approvals, lowStock, revisions });
+      } catch (err) {
+        // Suppress errors for background fetch
+      }
+    }
+
+    if (user) {
+      fetchBadgeCounts();
+      const interval = setInterval(fetchBadgeCounts, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const getBadgeForPath = (to: string) => {
+    if (to === "/approvals") return badgeCounts.approvals;
+    if (to === "/inventory") return badgeCounts.lowStock;
+    if (to === "/requests") return badgeCounts.revisions;
+    return 0;
+  };
+
   // Change Password Modal States
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -187,20 +240,43 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 groupIdx > 0 && <div className="h-px bg-sidebar-border/60 my-2 mx-1" />
               )}
               <div className="space-y-0.5">
-                {group.items.map(item => (
-                  <NavLink key={item.to} to={item.to} end={item.to === "/"}
-                    title={collapsed ? item.label : undefined}
-                    className={({ isActive }) => cn(
-                      "flex items-center rounded-md text-sm mb-0.5 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
-                      collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
-                      isActive
-                        ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-                    )}>
-                    <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
-                    {!collapsed && <span>{item.label}</span>}
-                  </NavLink>
-                ))}
+                {group.items.map(item => {
+                  const badge = getBadgeForPath(item.to);
+                  return (
+                    <NavLink key={item.to} to={item.to} end={item.to === "/"}
+                      title={collapsed ? item.label : undefined}
+                      className={({ isActive }) => cn(
+                        "flex items-center rounded-md text-sm mb-0.5 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
+                        collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-primary font-medium"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                      )}>
+                      <div className="relative flex items-center justify-center">
+                        <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                        {collapsed && badge > 0 && (
+                          <span className={cn(
+                            "absolute -top-2 -right-2 min-w-4 h-4 rounded-full border border-sidebar flex items-center justify-center text-[7px] font-bold px-0.5 shadow-sm",
+                            item.to === "/approvals" ? "bg-destructive text-destructive-foreground" :
+                            item.to === "/inventory" ? "bg-warning text-warning-foreground" : "bg-amber-500 text-white"
+                          )}>
+                            {badge}
+                          </span>
+                        )}
+                      </div>
+                      {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+                      {!collapsed && badge > 0 && (
+                        <span className={cn(
+                          "ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center justify-center min-w-5 h-5",
+                          item.to === "/approvals" ? "bg-destructive text-destructive-foreground" :
+                          item.to === "/inventory" ? "bg-warning text-warning-foreground" : "bg-amber-500 text-white"
+                        )}>
+                          {badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -235,16 +311,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     {group.title}
                   </div>
                   <div className="space-y-0.5">
-                    {group.items.map(item => (
-                      <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={() => setOpen(false)}
-                        className={({ isActive }) => cn(
-                          "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm mb-0.5 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
-                          isActive ? "bg-sidebar-accent text-sidebar-primary font-medium" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
-                        )}>
-                        <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
-                        <span>{item.label}</span>
-                      </NavLink>
-                    ))}
+                    {group.items.map(item => {
+                      const badge = getBadgeForPath(item.to);
+                      return (
+                        <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={() => setOpen(false)}
+                          className={({ isActive }) => cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm mb-0.5 group transition-all duration-300 hover:scale-[1.03] hover:-translate-y-[1px] active:scale-[0.98]",
+                            isActive ? "bg-sidebar-accent text-sidebar-primary font-medium" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                          )}>
+                          <item.icon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                          <span className="flex-1 text-left">{item.label}</span>
+                          {badge > 0 && (
+                            <span className={cn(
+                              "text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center justify-center min-w-5 h-5",
+                              item.to === "/approvals" ? "bg-destructive text-destructive-foreground" :
+                              item.to === "/inventory" ? "bg-warning text-warning-foreground" : "bg-amber-500 text-white"
+                            )}>
+                              {badge}
+                            </span>
+                          )}
+                        </NavLink>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

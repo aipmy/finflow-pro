@@ -38,9 +38,9 @@ export default function Requests() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
-    async function loadData() {
+    async function loadData(silent = false) {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const [reqs, cats, depts, sts] = await Promise.all([
           apiClient.requests.list(),
           apiClient.meta.categories(),
@@ -52,12 +52,18 @@ export default function Requests() {
         setDepartments(depts);
         setSites(sts);
       } catch (err: any) {
-        toast.error("Gagal memuat data dari server: " + err.message);
+        if (!silent) toast.error("Gagal memuat data dari server: " + err.message);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     }
     loadData();
+
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const list = useMemo(() => {

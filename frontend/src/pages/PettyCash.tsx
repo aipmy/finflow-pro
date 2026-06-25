@@ -57,9 +57,9 @@ export default function PettyCash() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [txToDelete, setTxToDelete] = useState<any>(null);
 
-  async function loadPettyCash() {
+  async function loadPettyCash(silent = false) {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [res, cats, depts, usrs] = await Promise.all([
         apiClient.pettyCash.get(),
         apiClient.meta.categories().catch(() => []),
@@ -71,14 +71,20 @@ export default function PettyCash() {
       setDepartments(depts);
       setUsers(usrs);
     } catch (err: any) {
-      toast.error("Gagal memuat saldo petty cash: " + err.message);
+      if (!silent) toast.error("Gagal memuat saldo petty cash: " + err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
     loadPettyCash();
+
+    const interval = setInterval(() => {
+      loadPettyCash(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleDeleteTx = async () => {

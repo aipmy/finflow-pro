@@ -96,9 +96,9 @@ export default function Inventory() {
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   };
 
-  async function loadData(start = startDate, end = endDate) {
+  async function loadData(start = startDate, end = endDate, silent = false) {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [itms, mvts, cats, sts, unts] = await Promise.all([
         apiClient.inventory.list(),
         apiClient.inventory.movements({ startDate: start || undefined, endDate: end || undefined }),
@@ -112,9 +112,9 @@ export default function Inventory() {
       setSites(sts);
       setUnits(unts);
     } catch (err: any) {
-      toast.error("Gagal memuat data inventaris: " + err.message);
+      if (!silent) toast.error("Gagal memuat data inventaris: " + err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
@@ -132,8 +132,14 @@ export default function Inventory() {
   };
 
   useEffect(() => {
-    loadData("", "");
-  }, []);
+    loadData(startDate, endDate);
+
+    const interval = setInterval(() => {
+      loadData(startDate, endDate, true);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [startDate, endDate]);
 
   const filtered = items.filter(i =>
     !q || `${i.name} ${i.sku}`.toLowerCase().includes(q.toLowerCase())
