@@ -355,7 +355,7 @@ export async function getUserDetail(userId, filters = {}) {
     code: r.code,
     title: r.title,
     amount: Number(r.financeRealization?.realizedAmount || r.amount),
-    categoryName: r.category?.name || "-",
+    categoryName: r.category?.name || (r.items && r.items.length > 0 ? r.items.find(it => it.category?.name)?.category?.name : null) || "-",
     departmentName: r.department?.name || "-",
     siteName: r.site?.name || "-",
     status: r.status,
