@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet, FileText, FileType, Loader2, Award, TrendingUp, DollarSign, BarChart2,
   Search, ChevronDown, ChevronUp, ArrowUpDown, CheckCircle2, XCircle, Clock, AlertCircle,
-  Users, CalendarDays, PieChartIcon, ArrowLeft, ExternalLink
+  Users, CalendarDays, PieChart as PieChartIcon, ArrowLeft, ExternalLink
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
