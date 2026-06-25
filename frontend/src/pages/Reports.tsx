@@ -26,7 +26,7 @@ const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
 
 export default function Reports() {
-  console.log("Finflow Reports v1.0.1-cb");
+  console.log("Finflow Reports v1.0.2-cb");
   const [loading, setLoading] = useState(true);
   const currentYearStr = new Date().getFullYear().toString();
   const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
@@ -510,7 +510,7 @@ function UserDetailPanel({ data, onBack, loading }: { data: any; onBack: () => v
         </Button>
         <div>
           <h3 className="text-base font-bold text-foreground">{user?.name || "Pemohon"}</h3>
-          <p className="text-[10px] text-muted-foreground">{user?.email} • {user?.role}</p>
+          <p className="text-[10px] text-muted-foreground">{user?.email} • {user?.role?.name || "-"}</p>
         </div>
       </div>
 
