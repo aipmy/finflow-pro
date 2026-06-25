@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Shield, Loader2, Lock, Trash2, Key, X, Check } from "lucide-react";
+import { Plus, Edit, Shield, Loader2, Lock, Trash2, Key, X, Check, Users as UsersIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth, can } from "@/stores/authStore";
+import { useAuth } from "@/stores/authStore";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 
@@ -233,72 +233,143 @@ export default function Users() {
 
   if (loading && users.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-2">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Memuat data pengguna...</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <Loader2 className="h-9 w-9 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted-foreground">Memuat data pengguna...</p>
       </div>
     );
   }
 
+  const totalUsers = users.length;
+  const activeUsers = users.filter(u => u.active).length;
+  const adminFinanceUsers = users.filter(u => {
+    const rName = u.role?.name?.toLowerCase() || "";
+    return rName === "admin" || rName === "finance";
+  }).length;
+
+  const getAvatarGradient = (name: string) => {
+    const code = (name || "").charCodeAt(0) + ((name || "").charCodeAt(1) || 0);
+    const gradients = [
+      "from-pink-500 to-rose-500 text-white",
+      "from-purple-500 to-indigo-500 text-white",
+      "from-blue-500 to-cyan-500 text-white",
+      "from-teal-500 to-emerald-500 text-white",
+      "from-amber-500 to-orange-500 text-white",
+    ];
+    return gradients[code % gradients.length];
+  };
+
   return (
-    <div className="p-4 lg:p-6 space-y-4 max-w-[1400px] mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-6 space-y-6 max-w-[1400px] mx-auto">
+      {/* Header Halaman */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Manajemen Pengguna</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{users.length} pengguna terdaftar</p>
+          <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <UsersIcon className="h-6 w-6 text-primary" />
+            Manajemen Pengguna
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+            Kelola data akun pengguna, role, departemen, dan tingkat hak akses sistem
+          </p>
         </div>
         {isAdmin && (
-          <Button size="sm" className="gradient-primary text-primary-foreground" onClick={handleOpenAdd}>
+          <Button size="sm" className="gradient-primary text-primary-foreground shadow-sm h-9 px-4 font-semibold rounded-lg" onClick={handleOpenAdd}>
             <Plus className="h-4 w-4 mr-1.5" />Pengguna Baru
           </Button>
         )}
       </div>
 
-      <Card className="shadow-elegant hidden md:block">
+      {/* Quick Stats Widgets */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="border border-border/60 bg-card/60 backdrop-blur-md shadow-elegant relative overflow-hidden rounded-xl">
+          <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-primary/10 blur-xl" />
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Pengguna</div>
+              <div className="text-3xl font-black text-foreground mt-1">{totalUsers}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Seluruh akun terdaftar</div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-sm">
+              <UsersIcon className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card/60 backdrop-blur-md shadow-elegant relative overflow-hidden rounded-xl">
+          <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-success/10 blur-xl" />
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pengguna Aktif</div>
+              <div className="text-3xl font-black text-success mt-1">{activeUsers}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Memiliki akses ke sistem</div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-success/10 border border-success/20 text-success flex items-center justify-center shadow-sm">
+              <Check className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card/60 backdrop-blur-md shadow-elegant relative overflow-hidden rounded-xl">
+          <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-info/10 blur-xl" />
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Keuangan & Admin</div>
+              <div className="text-3xl font-black text-info mt-1">{adminFinanceUsers}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Pengelola & Verifikator</div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-info/10 border border-info/20 text-info flex items-center justify-center shadow-sm">
+              <Shield className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Desktop Table View */}
+      <Card className="border border-border/60 bg-card/60 backdrop-blur-md shadow-elegant rounded-xl overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+            <thead className="bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50">
               <tr>
-                <th className="text-left p-3 font-medium">Nama</th>
-                <th className="text-left p-3 font-medium">Username</th>
-                <th className="text-left p-3 font-medium">Email</th>
-                <th className="text-left p-3 font-medium">Role</th>
-                <th className="text-left p-3 font-medium">Departemen / Site</th>
-                <th className="text-left p-3 font-medium">Last Login</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                {isAdmin && <th className="text-right p-3 font-medium">Aksi</th>}
+                <th className="text-left p-4 font-bold">Nama</th>
+                <th className="text-left p-4 font-bold">Username</th>
+                <th className="text-left p-4 font-bold">Email</th>
+                <th className="text-left p-4 font-bold">Role</th>
+                <th className="text-left p-4 font-bold">Departemen / Site</th>
+                <th className="text-left p-4 font-bold">Last Login</th>
+                <th className="text-left p-4 font-bold">Status</th>
+                {isAdmin && <th className="text-right p-4 font-bold">Aksi</th>}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/40">
               {users.map((u) => {
                 const roleName = u.role?.name || "staff";
                 return (
-                  <tr key={u.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full gradient-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">
-                          {u.name.split(" ").map((s: string) => s[0]).slice(0, 2).join("")}
+                  <tr key={u.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${getAvatarGradient(u.name)} text-[11px] font-black flex items-center justify-center shadow-sm flex-shrink-0 border border-white/10`}>
+                          {u.name.split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase()}
                         </div>
-                        <span className="font-medium">{u.name}</span>
+                        <span className="font-bold text-foreground">{u.name}</span>
                       </div>
                     </td>
-                    <td className="p-3 text-xs font-mono">{u.username || "-"}</td>
-                    <td className="p-3 text-xs text-muted-foreground">{u.email}</td>
-                    <td className="p-3">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-md border font-medium capitalize ${roleColors[roleName] || "bg-muted"}`}>
+                    <td className="p-4 text-xs font-mono font-semibold text-muted-foreground bg-muted/20 px-2.5 py-1 rounded-md max-w-fit">{u.username || "-"}</td>
+                    <td className="p-4 text-xs font-medium text-muted-foreground">{u.email}</td>
+                    <td className="p-4">
+                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full border font-bold capitalize tracking-wide ${roleColors[roleName.toLowerCase()] || "bg-muted"}`}>
                         {roleName}
                       </span>
                     </td>
-                    <td className="p-3 text-xs">
-                      <div>{u.department?.name || "-"}</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">{u.site?.name || "-"}</div>
+                    <td className="p-4 text-xs">
+                      <div className="font-semibold text-foreground">{u.department?.name || "-"}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 font-medium">{u.site?.name || "-"}</div>
                     </td>
-                    <td className="p-3 text-xs text-muted-foreground">{formatLastLogin(u)}</td>
-                    <td className="p-3">
+                    <td className="p-4 text-xs font-medium text-muted-foreground">{formatLastLogin(u)}</td>
+                    <td className="p-4">
                       <button
                         onClick={() => handleToggleStatus(u)}
                         disabled={!isAdmin || u.id === currentUser?.id}
-                        className={`text-[10px] px-2 py-0.5 rounded-md font-medium border transition-colors ${
+                        className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border transition-all ${
                           u.active
                             ? "bg-success/10 text-success border-success/30 hover:bg-success/20"
                             : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
@@ -308,12 +379,12 @@ export default function Users() {
                       </button>
                     </td>
                     {isAdmin && (
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent hover:border-border"
                             onClick={() => handleOpenEdit(u)}
                             title="Edit Pengguna"
                           >
@@ -322,7 +393,7 @@ export default function Users() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent hover:border-border"
                             onClick={() => handleOpenChangePw(u)}
                             title="Reset Password"
                           >
@@ -331,7 +402,7 @@ export default function Users() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
                             onClick={() => handleOpenDelete(u)}
                             disabled={u.id === currentUser?.id}
                             title="Hapus Pengguna"
@@ -350,24 +421,24 @@ export default function Users() {
       </Card>
 
       {/* Mobile view */}
-      <div className="md:hidden space-y-2">
+      <div className="md:hidden space-y-3">
         {users.map((u) => {
           const roleName = u.role?.name || "staff";
           return (
-            <Card key={u.id} className="shadow-sm">
-              <CardContent className="p-3">
+            <Card key={u.id} className="border border-border/60 bg-card/60 backdrop-blur-md shadow-elegant rounded-xl overflow-hidden">
+              <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full gradient-accent text-accent-foreground text-xs font-bold flex items-center justify-center">
-                    {u.name.split(" ").map((s: string) => s[0]).slice(0, 2).join("")}
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getAvatarGradient(u.name)} text-xs font-black flex items-center justify-center shadow-sm flex-shrink-0 border border-white/10`}>
+                    {u.name.split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{u.name}</div>
+                    <div className="font-bold text-foreground text-sm">{u.name}</div>
                     <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
                   </div>
                   <button
                     onClick={() => handleToggleStatus(u)}
                     disabled={!isAdmin || u.id === currentUser?.id}
-                    className={`text-[10px] px-2 py-0.5 rounded-md font-medium border ${
+                    className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border transition-colors ${
                       u.active
                         ? "bg-success/10 text-success border-success/30"
                         : "bg-muted text-muted-foreground border-border"
@@ -376,21 +447,21 @@ export default function Users() {
                     {u.active ? "Aktif" : "Nonaktif"}
                   </button>
                 </div>
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border text-[11px]">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-md border capitalize ${roleColors[roleName] || "bg-muted"}`}>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50 text-[11px] font-medium">
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full border font-bold capitalize tracking-wide ${roleColors[roleName.toLowerCase()] || "bg-muted"}`}>
                     {roleName}
                   </span>
                   <span className="text-muted-foreground">{u.department?.name || "-"}</span>
-                  <span className="text-muted-foreground">•</span>
+                  <span className="text-border/80 font-normal">•</span>
                   <span className="text-muted-foreground">{u.site?.name || "-"}</span>
                 </div>
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-border text-[10px] text-muted-foreground">
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50 text-[10px] text-muted-foreground font-semibold">
                   <span>Login: {formatLastLogin(u)}</span>
                   {isAdmin && (
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEdit(u)}><Edit className="h-3 w-3" /></Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenChangePw(u)}><Key className="h-3 w-3" /></Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleOpenDelete(u)} disabled={u.id === currentUser?.id}><Trash2 className="h-3 w-3" /></Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted border border-border/40" onClick={() => handleOpenEdit(u)}><Edit className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted border border-border/40" onClick={() => handleOpenChangePw(u)}><Key className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 border border-destructive/20" onClick={() => handleOpenDelete(u)} disabled={u.id === currentUser?.id}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   )}
                 </div>
@@ -401,22 +472,27 @@ export default function Users() {
       </div>
 
       {/* Role list Card */}
-      <Card className="shadow-elegant">
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4" />Role & Permissions</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+      <Card className="border border-border/60 bg-card/60 backdrop-blur-md shadow-elegant rounded-xl overflow-hidden">
+        <CardHeader className="border-b border-border/50 bg-muted/20">
+          <CardTitle className="text-base flex items-center gap-2 font-bold text-foreground">
+            <Shield className="h-4.5 w-4.5 text-primary animate-pulse" />
+            Hak Akses & Otoritas Sistem
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-5">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
             {[
-              { role: "Admin", perms: ["Manage users", "Manage settings", "Full access"] },
-              { role: "Finance", perms: ["Verify expenses", "Input realization", "Export reports"] },
-              { role: "Supervisor", perms: ["Approve requests", "Request revision"] },
-              { role: "Manager", perms: ["Approve level 2", "View reports"] },
-              { role: "Staff", perms: ["Create requests", "View own data"] },
-              { role: "Auditor", perms: ["View reports", "View audit trail"] },
+              { role: "Admin", perms: ["Kelola data seluruh pengguna", "Konfigurasi parameter sistem", "Akses kontrol penuh log audit"] },
+              { role: "Finance", perms: ["Verifikasi realisasi keuangan pengajuan", "Input transaksi kas kecil manual", "Ekspor dokumen laporan laba rugi"] },
+              { role: "Supervisor", perms: ["Approve pengajuan level 1 (< Rp 5jt)", "Minta revisi pengajuan dana", "Lihat log aktivitas parsial"] },
+              { role: "Manager", perms: ["Approve pengajuan dana level 2 (> Rp 5jt)", "Ekspor data laporan", "Analisis dasbor eksekutif"] },
+              { role: "Staff", perms: ["Buat pengajuan dana operasional baru", "Lihat riwayat status pengajuan pribadi", "Upload berkas bukti pembayaran"] },
+              { role: "Auditor", perms: ["Lihat seluruh laporan laporan keuangan", "Akses halaman log audit trail", "Analisis distribusi kategori"] },
             ].map(p => (
-              <div key={p.role} className="p-3 rounded-md border border-border">
-                <div className={`text-[10px] inline-block px-2 py-0.5 rounded mb-2 capitalize ${roleColors[p.role.toLowerCase()]}`}>{p.role}</div>
-                <ul className="space-y-1 text-muted-foreground">
-                  {p.perms.map(x => <li key={x}>• {x}</li>)}
+              <div key={p.role} className="p-3.5 rounded-xl border border-border/60 bg-background/30 hover:border-primary/30 transition-all duration-200">
+                <div className={`text-[10px] inline-block px-2.5 py-0.5 rounded-full border font-bold mb-3 capitalize tracking-wide ${roleColors[p.role.toLowerCase()]}`}>{p.role}</div>
+                <ul className="space-y-1.5 text-muted-foreground font-medium text-[11px]">
+                  {p.perms.map(x => <li key={x} className="flex items-start gap-1"><span>•</span> <span>{x}</span></li>)}
                 </ul>
               </div>
             ))}
@@ -427,44 +503,47 @@ export default function Users() {
       {/* Add / Edit User Modal */}
       {showAddEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setShowAddEditModal(false)} />
-          <div className="relative bg-card text-card-foreground border border-border w-full max-w-md rounded-xl shadow-elevated p-6 animate-in zoom-in-95 duration-150 z-10">
-            <button onClick={() => setShowAddEditModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+          <div className="absolute inset-0 bg-foreground/45 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAddEditModal(false)} />
+          <div className="relative bg-card text-card-foreground border border-border/70 w-full max-w-md rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-150 z-10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-accent to-info" />
+            
+            <button onClick={() => setShowAddEditModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded-full transition-colors">
               <X className="h-4 w-4" />
             </button>
-            <h2 className="text-base font-semibold tracking-tight mb-4">
+            <h2 className="text-base font-bold tracking-tight mb-4 flex items-center gap-2">
+              <Shield className="h-4.5 w-4.5 text-primary" />
               {isEditing ? "Edit Pengguna" : "Pengguna Baru"}
             </h2>
-            <form onSubmit={handleAddEditSubmit} className="space-y-3.5">
+            <form onSubmit={handleAddEditSubmit} className="space-y-4">
               <div>
-                <Label className="text-xs">Nama Lengkap</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Nama Lengkap</Label>
                 <Input
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Nama Lengkap"
-                  className="mt-1"
+                  className="mt-1 bg-background/50 border-border/80 hover:border-border transition-colors rounded-lg h-9 text-sm"
                   required
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Username</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Username</Label>
                   <Input
                     value={username}
                     onChange={e => setUsername(e.target.value)}
                     placeholder="username"
-                    className="mt-1"
+                    className="mt-1 bg-background/50 border-border/80 hover:border-border transition-colors rounded-lg h-9 text-sm"
                     required
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Email</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Email</Label>
                   <Input
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="email@domain.com"
-                    className="mt-1"
+                    className="mt-1 bg-background/50 border-border/80 hover:border-border transition-colors rounded-lg h-9 text-sm"
                     required
                   />
                 </div>
@@ -472,23 +551,23 @@ export default function Users() {
 
               {!isEditing && (
                 <div>
-                  <Label className="text-xs">Password Awal</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Password Awal</Label>
                   <Input
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="Minimal 6 karakter (default: password123)"
-                    className="mt-1"
+                    className="mt-1 bg-background/50 border-border/80 hover:border-border transition-colors rounded-lg h-9 text-sm"
                   />
                 </div>
               )}
 
               <div>
-                <Label className="text-xs">Role</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Role</Label>
                 <select
                   value={roleId}
                   onChange={e => setRoleId(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full mt-1 px-3 py-2 rounded-lg border border-border/80 bg-background/50 hover:border-border transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-primary/45 h-9"
                   required
                 >
                   <option value="" disabled>Pilih Role</option>
@@ -500,11 +579,11 @@ export default function Users() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Departemen</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Departemen</Label>
                   <select
                     value={departmentId}
                     onChange={e => setDepartmentId(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-border/80 bg-background/50 hover:border-border transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-primary/45 h-9"
                   >
                     <option value="">Non-departemen (Semua)</option>
                     {departments.map(d => (
@@ -513,11 +592,11 @@ export default function Users() {
                   </select>
                 </div>
                 <div>
-                  <Label className="text-xs">Site</Label>
+                  <Label className="text-xs font-bold text-muted-foreground">Site</Label>
                   <select
                     value={siteId}
                     onChange={e => setSiteId(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-border/80 bg-background/50 hover:border-border transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-primary/45 h-9"
                   >
                     <option value="">Non-site (Semua)</option>
                     {sites.map(s => (
@@ -527,22 +606,22 @@ export default function Users() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex items-center gap-2 pt-1">
                 <input
                   type="checkbox"
                   id="active"
                   checked={active}
                   onChange={e => setActive(e.target.checked)}
-                  className="rounded border-input text-primary focus:ring-ring h-4 w-4"
+                  className="rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background/50 cursor-pointer"
                 />
-                <Label htmlFor="active" className="text-xs font-medium cursor-pointer">Pengguna Aktif</Label>
+                <Label htmlFor="active" className="text-xs font-bold text-foreground cursor-pointer select-none">Pengguna Aktif</Label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowAddEditModal(false)}>
+              <div className="flex justify-end gap-2 pt-3 border-t border-border/50">
+                <Button type="button" variant="outline" size="sm" className="rounded-lg h-9 px-4 font-semibold text-xs" onClick={() => setShowAddEditModal(false)}>
                   Batal
                 </Button>
-                <Button type="submit" size="sm" disabled={submitting}>
+                <Button type="submit" size="sm" className="gradient-primary text-primary-foreground rounded-lg h-9 px-4 font-semibold text-xs" disabled={submitting}>
                   {submitting && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
                   Simpan
                 </Button>
@@ -555,33 +634,38 @@ export default function Users() {
       {/* Reset Password Modal */}
       {showChangePwModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setShowChangePwModal(false)} />
-          <div className="relative bg-card text-card-foreground border border-border w-full max-w-sm rounded-xl shadow-elevated p-6 animate-in zoom-in-95 duration-150 z-10">
-            <button onClick={() => setShowChangePwModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+          <div className="absolute inset-0 bg-foreground/45 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowChangePwModal(false)} />
+          <div className="relative bg-card text-card-foreground border border-border/70 w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-150 z-10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-warning to-destructive" />
+            
+            <button onClick={() => setShowChangePwModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded-full transition-colors">
               <X className="h-4 w-4" />
             </button>
-            <h2 className="text-base font-semibold tracking-tight mb-2">Reset Password</h2>
-            <p className="text-xs text-muted-foreground mb-4">
-              Masukkan password baru untuk pengguna <strong>{selectedUser?.name}</strong>.
+            <h2 className="text-base font-bold tracking-tight mb-2 flex items-center gap-2">
+              <Key className="h-4.5 w-4.5 text-warning" />
+              Reset Password
+            </h2>
+            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+              Masukkan password baru untuk pengguna <strong className="text-foreground">{selectedUser?.name}</strong>.
             </p>
             <form onSubmit={handleChangePwSubmit} className="space-y-4">
               <div>
-                <Label className="text-xs">Password Baru</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Password Baru</Label>
                 <Input
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
                   placeholder="Minimal 6 karakter"
-                  className="mt-1"
+                  className="mt-1 bg-background/50 border-border/80 hover:border-border transition-colors rounded-lg h-9 text-sm"
                   required
                   autoFocus
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowChangePwModal(false)}>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                <Button type="button" variant="outline" size="sm" className="rounded-lg h-9 px-4 font-semibold text-xs" onClick={() => setShowChangePwModal(false)}>
                   Batal
                 </Button>
-                <Button type="submit" size="sm" disabled={submitting || !newPassword.trim()}>
+                <Button type="submit" size="sm" className="gradient-primary text-primary-foreground rounded-lg h-9 px-4 font-semibold text-xs" disabled={submitting || !newPassword.trim()}>
                   {submitting && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
                   Simpan
                 </Button>
@@ -594,17 +678,22 @@ export default function Users() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="relative bg-card text-card-foreground border border-border w-full max-w-sm rounded-xl shadow-elevated p-6 animate-in zoom-in-95 duration-150 z-10">
-            <h2 className="text-base font-semibold tracking-tight mb-2">Konfirmasi Hapus Pengguna</h2>
-            <p className="text-xs text-muted-foreground mb-6">
-              Apakah Anda yakin ingin menghapus pengguna <strong>{selectedUser?.name}</strong> ({selectedUser?.email})? Tindakan ini tidak dapat dibatalkan.
+          <div className="absolute inset-0 bg-foreground/45 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="relative bg-card text-card-foreground border border-border/70 w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-150 z-10 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-destructive" />
+            
+            <h2 className="text-base font-bold tracking-tight mb-2 text-destructive flex items-center gap-2">
+              <Trash2 className="h-4.5 w-4.5" />
+              Hapus Pengguna
+            </h2>
+            <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
+              Apakah Anda yakin ingin menghapus pengguna <strong className="text-foreground">{selectedUser?.name}</strong> ({selectedUser?.email})? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
             </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowDeleteConfirm(false)}>
+            <div className="flex justify-end gap-2 border-t border-border/50 pt-4">
+              <Button type="button" variant="outline" size="sm" className="rounded-lg h-9 px-4 font-semibold text-xs" onClick={() => setShowDeleteConfirm(false)}>
                 Batal
               </Button>
-              <Button type="button" variant="destructive" size="sm" onClick={handleDeleteSubmit} disabled={submitting}>
+              <Button type="button" variant="destructive" size="sm" className="rounded-lg h-9 px-4 font-semibold text-xs" onClick={handleDeleteSubmit} disabled={submitting}>
                 {submitting && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
                 Hapus
               </Button>

@@ -114,69 +114,102 @@ export default function FinanceRealization() {
         <p className="text-xs text-muted-foreground mt-0.5">Input realisasi aktual dan tutup pengajuan</p>
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-3">
-        <Card className="shadow-elegant"><CardContent className="p-4">
-          <div className="text-[11px] text-muted-foreground mb-1">Menunggu Realisasi</div>
-          <div className="text-2xl font-bold">{pending.length}</div>
-        </CardContent></Card>
-        <Card className="shadow-elegant"><CardContent className="p-4">
-          <div className="text-[11px] text-muted-foreground mb-1">Sudah Direalisasi</div>
-          <div className="text-2xl font-bold text-success">{closed.length}</div>
-        </CardContent></Card>
-        <Card className="shadow-elegant"><CardContent className="p-4">
-          <div className="text-[11px] text-muted-foreground mb-1">Total Outstanding</div>
-          <div className="text-2xl font-bold text-warning">
-            {formatRupiah(pending.reduce((acc, curr) => acc + Number(curr.amount), 0))}
-          </div>
-        </CardContent></Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="border border-border/60 bg-card/50 backdrop-blur-md shadow-elegant hover:-translate-y-0.5 transition-all duration-200">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shadow-sm">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Menunggu Realisasi</div>
+              <div className="text-2xl font-black tracking-tight text-foreground mt-0.5">{pending.length}</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card/50 backdrop-blur-md shadow-elegant hover:-translate-y-0.5 transition-all duration-200">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-success/10 text-success flex items-center justify-center border border-success/20 shadow-sm">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sudah Direalisasi</div>
+              <div className="text-2xl font-black tracking-tight text-success mt-0.5">{closed.length}</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card/50 backdrop-blur-md shadow-elegant hover:-translate-y-0.5 transition-all duration-200">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-warning/10 text-warning flex items-center justify-center border border-warning/20 shadow-sm">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Outstanding</div>
+              <div className="text-2xl font-black tracking-tight text-warning mt-0.5">
+                {formatRupiah(pending.reduce((acc, curr) => acc + Number(curr.amount), 0))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card className="shadow-elegant">
-        <CardHeader><CardTitle className="text-base">Antrian Realisasi</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+      <Card className="border border-border/60 bg-card/45 backdrop-blur-md shadow-elegant rounded-xl">
+        <CardHeader className="border-b border-border/50 pb-4">
+          <CardTitle className="text-base font-bold tracking-tight">Antrian Realisasi</CardTitle>
+        </CardHeader>
+        <CardContent className="p-5 space-y-3.5">
           {pending.length === 0 ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">Tidak ada pengajuan menunggu realisasi</div>
+            <div className="text-center py-12 text-sm text-muted-foreground italic">Tidak ada pengajuan menunggu realisasi</div>
           ) : pending.map(r => {
             const u = r.requester;
             const s = r.site;
             return (
-              <div key={r.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-md border border-border">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-mono text-muted-foreground">{r.code}</span>
+              <div key={r.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-border/50 bg-card/60 hover:bg-muted/30 transition-all duration-150 group">
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-block font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary/80 text-secondary-foreground border border-border/80 font-semibold tracking-tight shadow-sm">
+                      {r.code}
+                    </span>
                     <StatusBadge status={r.status} />
                   </div>
-                  <div className="text-sm font-medium">{r.title}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {u?.name} • {s?.name} • {formatDate(r.createdAt)}
+                  <div className="text-sm font-bold tracking-tight text-foreground">{r.title}</div>
+                  <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 font-medium">
+                    <span className="text-foreground font-semibold">{u?.name}</span>
+                    <span className="text-border">•</span>
+                    <span>{s?.name}</span>
+                    <span className="text-border">•</span>
+                    <span className="italic">{formatDate(r.createdAt)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <div className="text-[10px] text-muted-foreground">Diajukan</div>
-                    <div className="font-semibold">{formatRupiah(Number(r.amount))}</div>
+                
+                <div className="flex items-center justify-between md:justify-end gap-5 pt-3 md:pt-0 border-t md:border-none border-dashed border-border/60">
+                  <div className="text-left md:text-right">
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Diajukan</div>
+                    <div className="text-base font-black text-foreground mt-0.5">{formatRupiah(Number(r.amount))}</div>
                   </div>
+                  
                   <Dialog open={isDialogOpen[r.id]} onOpenChange={(open) => setIsDialogOpen(prev => ({ ...prev, [r.id]: open }))}>
                     <DialogTrigger asChild>
-                      <Button size="sm" className="gradient-primary text-primary-foreground">
-                        <Wallet className="h-3.5 w-3.5 mr-1" />Realisasi
+                      <Button size="sm" className="gradient-primary text-primary-foreground shadow-sm px-4 h-9 font-semibold">
+                        <Wallet className="h-3.5 w-3.5 mr-1.5" />Realisasi
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="border border-border">
                       <DialogHeader>
-                        <DialogTitle>Input Realisasi - {r.code}</DialogTitle>
-                        <DialogDescription>{r.title}</DialogDescription>
+                        <DialogTitle className="text-lg font-bold tracking-tight">Input Realisasi - {r.code}</DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground">{r.title}</DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label>Diajukan</Label>
-                            <Input value={formatRupiah(Number(r.amount))} disabled className="mt-1.5" />
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Diajukan</Label>
+                            <Input value={formatRupiah(Number(r.amount))} disabled className="bg-muted text-foreground/80 h-10 border-border/60" />
                           </div>
-                          <div>
-                            <Label>Realisasi Aktual</Label>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold">Realisasi Aktual (Rp) <span className="text-destructive">*</span></Label>
                             <Input 
-                              className="mt-1.5" 
+                              className="h-10 border-border/60 focus-visible:ring-primary/50" 
                               type="text" 
                               inputMode="numeric"
                               placeholder="0" 
@@ -189,13 +222,13 @@ export default function FinanceRealization() {
                           </div>
                         </div>
                         {actual && (
-                          <div className={`p-3 rounded-md text-xs ${+actual > Number(r.amount) ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}>
-                            Selisih: {formatRupiah(Math.abs(+actual - Number(r.amount)))} {+actual > Number(r.amount) ? "(over budget)" : "(under budget)"}
+                          <div className={`p-3 rounded-lg text-xs border font-semibold ${+actual > Number(r.amount) ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-success/10 text-success border-success/20"}`}>
+                            Selisih: {formatRupiah(Math.abs(+actual - Number(r.amount)))} {+actual > Number(r.amount) ? "(over budget)" : "(under budget / hemat)"}
                           </div>
                         )}
-                        <div>
-                          <Label htmlFor={`file-${r.id}`}>Upload Bukti / Invoice <span className="text-destructive">*</span></Label>
-                          <div className="mt-1.5 border-2 border-dashed rounded-md p-4 text-center cursor-pointer relative hover:bg-muted/20">
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`file-${r.id}`} className="text-xs font-semibold">Upload Bukti / Invoice <span className="text-destructive">*</span></Label>
+                          <div className="border-2 border-dashed border-border/70 rounded-xl p-5 text-center cursor-pointer relative hover:bg-muted/30 transition-colors">
                             <input 
                               type="file" 
                               id={`file-${r.id}`} 
@@ -203,27 +236,28 @@ export default function FinanceRealization() {
                               onChange={handleFileChange}
                               accept="image/*,.pdf"
                             />
-                            <Upload className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-                            <div className="text-xs text-muted-foreground">
+                            <Upload className="h-6 w-6 mx-auto text-muted-foreground/80 mb-2" />
+                            <div className="text-xs font-bold text-foreground">
                               {file ? file.name : "Klik atau seret file bukti ke sini"}
                             </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">Mendukung format gambar JPEG/PNG atau PDF</p>
                           </div>
                         </div>
-                        <div>
-                          <Label>Catatan</Label>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Catatan</Label>
                           <Textarea 
-                            className="mt-1.5" 
-                            rows={2} 
+                            className="resize-none border-border/60 focus-visible:ring-primary/50" 
+                            rows={3} 
                             placeholder="Catatan realisasi..." 
                             value={notes}
                             onChange={e => setNotes(e.target.value)}
                           />
                         </div>
                       </div>
-                      <DialogFooter>
+                      <DialogFooter className="border-t border-border/50 pt-3">
                         <Button 
                           onClick={() => submit(r.id, r.code, Number(r.amount))} 
-                          className="gradient-primary text-primary-foreground"
+                          className="gradient-primary text-primary-foreground shadow-sm h-10 px-5 font-semibold"
                           disabled={isSubmitting}
                         >
                           <CheckCircle2 className="h-4 w-4 mr-1.5" />
@@ -239,54 +273,62 @@ export default function FinanceRealization() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-elegant">
-        <CardHeader><CardTitle className="text-base">Riwayat Realisasi</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
+      <Card className="border border-border/60 bg-card/45 backdrop-blur-md shadow-elegant rounded-xl">
+        <CardHeader className="border-b border-border/50 pb-4">
+          <CardTitle className="text-base font-bold tracking-tight">Riwayat Realisasi</CardTitle>
+        </CardHeader>
+        <CardContent className="p-5 space-y-3.5">
           {closed.map(r => {
             const diff = Number(r.financeRealization?.realizedAmount || 0) - Number(r.amount);
             return (
-              <div key={r.id} className="flex items-center justify-between p-3 rounded-md border border-border">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-mono text-muted-foreground">{r.code}</span>
+              <div key={r.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-card/60 hover:bg-muted/30 transition-all duration-150 group">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-block font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary/80 text-secondary-foreground border border-border/80 font-semibold tracking-tight shadow-sm">
+                      {r.code}
+                    </span>
                     <StatusBadge status={r.status} />
                   </div>
-                  <div className="text-sm font-medium truncate">{r.title}</div>
+                  <div className="text-sm font-bold tracking-tight text-foreground">{r.title}</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold">{formatRupiah(Number(r.financeRealization?.realizedAmount || 0))}</div>
-                  <div className={`text-[10px] ${diff >= 0 ? "text-destructive" : "text-success"}`}>
-                    {diff >= 0 ? "+" : ""}{formatRupiah(diff)}
+                
+                <div className="flex items-center justify-end gap-5 pl-4">
+                  <div className="text-right">
+                    <div className="text-base font-black text-foreground">{formatRupiah(Number(r.financeRealization?.realizedAmount || 0))}</div>
+                    <div className={`text-[10px] font-bold mt-0.5 ${diff >= 0 ? "text-destructive" : "text-success"}`}>
+                      {diff >= 0 ? "+" : ""}{formatRupiah(diff)}
+                    </div>
+                    {r.financeRealization?.receiptUrl && (
+                      <button 
+                        onClick={() => {
+                          const url = r.financeRealization?.receiptUrl;
+                          if (url?.toLowerCase().endsWith(".pdf")) {
+                            window.open(url, "_blank");
+                          } else if (url) {
+                            setPreviewUrl(url);
+                            setPreviewDetails([
+                              { label: "Kode Transaksi", value: r.code },
+                              { label: "Pengajuan", value: r.title },
+                              { label: "Tanggal Realisasi", value: formatDate(r.financeRealization?.createdAt || new Date()) },
+                              { label: "Diminta", value: formatRupiah(Number(r.amount)) },
+                              { label: "Terealisasi", value: formatRupiah(Number(r.financeRealization?.realizedAmount || 0)) },
+                              { label: "Selisih", value: formatRupiah(diff) },
+                            ]);
+                            setIsPreviewOpen(true);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary-glow font-bold bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded mt-1.5 transition-colors"
+                      >
+                        <FileText className="h-3 w-3" />
+                        Lihat Bukti
+                      </button>
+                    )}
                   </div>
-                  {r.financeRealization?.receiptUrl && (
-                    <button 
-                      onClick={() => {
-                        const url = r.financeRealization?.receiptUrl;
-                        if (url?.toLowerCase().endsWith(".pdf")) {
-                          window.open(url, "_blank");
-                        } else if (url) {
-                          setPreviewUrl(url);
-                          setPreviewDetails([
-                            { label: "Kode Transaksi", value: r.code },
-                            { label: "Pengajuan", value: r.title },
-                            { label: "Tanggal Realisasi", value: formatDate(r.financeRealization?.createdAt || new Date()) },
-                            { label: "Diminta", value: formatRupiah(Number(r.amount)) },
-                            { label: "Terealisasi", value: formatRupiah(Number(r.financeRealization?.realizedAmount || 0)) },
-                            { label: "Selisih", value: formatRupiah(diff) },
-                          ]);
-                          setIsPreviewOpen(true);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-medium bg-primary/5 px-1.5 py-0.5 rounded mt-1"
-                    >
-                      <FileText className="h-3 w-3" />
-                      Lihat Bukti
-                    </button>
-                  )}
                 </div>
               </div>
             );
           })}
+          {closed.length === 0 && <div className="text-center py-12 text-sm text-muted-foreground italic">Belum ada riwayat realisasi transaksi</div>}
         </CardContent>
       </Card>
       <ImagePreviewModal 
