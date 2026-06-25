@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/stores/authStore";
 import {
   TrendingUp, TrendingDown, Wallet, AlertCircle,
-  CheckCircle2, Clock, FileText, Coins, ArrowRight, Package
+  CheckCircle2, Clock, FileText, Coins, ArrowRight, Package, XCircle
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -211,12 +211,12 @@ export default function Dashboard() {
   const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--info))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--destructive))", "#8b5cf6", "#ec4899", "#f59e0b", "#06b6d4", "#84cc16"];
 
   const colorMap: Record<string, string> = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/10 text-success",
-    destructive: "bg-destructive/10 text-destructive",
-    info: "bg-info/10 text-info",
-    warning: "bg-warning/10 text-warning",
-    accent: "bg-accent/10 text-accent",
+    primary: "bg-primary/10 text-primary border border-primary/20",
+    success: "bg-success/10 text-success border border-success/20",
+    destructive: "bg-destructive/10 text-destructive border border-destructive/20",
+    info: "bg-info/10 text-info border border-info/20",
+    warning: "bg-warning/10 text-warning border border-warning/20",
+    accent: "bg-accent/10 text-accent border border-accent/20",
   };
 
   const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
@@ -228,14 +228,14 @@ export default function Dashboard() {
     { label: `Menunggu Approval (${periodName})`, value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
     { label: `Perlu Tindakan / Revisi (${periodName})`, value: `${needRevisionCount} pengajuan`, icon: AlertCircle, trend: "revisi", up: false, color: "destructive" },
   ] : [
-    { label: `Total Pengeluaran (${periodName})`, value: formatRupiah(totalExpensesMonth), icon: FileText, trend: "realisasi", up: true, color: "primary" },
+    { label: `Total Pengeluaran (${periodName})`, value: formatRupiah(totalExpensesMonth), icon: Wallet, trend: "realisasi", up: true, color: "primary" },
     { label: `Nominal Menunggu Approval (${periodName})`, value: formatRupiah(pendingAmount), icon: Clock, trend: `${pending} pengajuan`, up: false, color: "warning" },
     { label: `Total Pengajuan Baru (${periodName})`, value: `${newSubmissionsCount} pengajuan`, icon: FileText, trend: "aktif", up: true, color: "info" },
     { label: `Outstanding (${periodName})`, value: formatRupiah(outstanding), icon: Clock, trend: "pending", up: false, color: "warning" },
     { label: "Sisa Petty Cash", value: formatRupiah(pettyCash.balance), icon: Coins, trend: pettyCash.initial > 0 ? `${Math.round(pettyCash.balance / pettyCash.initial * 100)}%` : "0%", up: true, color: "accent" },
     { label: "Stok Hampir Habis", value: `${lowStockCount} item`, icon: Package, trend: "perlu restock", up: false, color: "destructive" },
     { label: `Total Disetujui (${periodName})`, value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
-    { label: `Total Ditolak (${periodName})`, value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
+    { label: `Total Ditolak (${periodName})`, value: formatRupiah(rejected), icon: XCircle, trend: "rejected", up: false, color: "destructive" },
   ];
 
   if (loading) {
@@ -334,12 +334,12 @@ export default function Dashboard() {
       {/* Header with Period Selectors */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-xs text-muted-foreground">Ringkasan aktivitas dan kinerja keuangan</p>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-xs text-muted-foreground mt-0.5 font-medium">Ringkasan aktivitas dan kinerja keuangan real-time</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[140px] h-9 text-xs">
+            <SelectTrigger className="w-[140px] h-9 text-xs bg-background/50 border-border/80 hover:border-border transition-colors rounded-lg">
               <SelectValue placeholder="Pilih Bulan" />
             </SelectTrigger>
             <SelectContent>
@@ -351,7 +351,7 @@ export default function Dashboard() {
           </Select>
 
           <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-[110px] h-9 text-xs">
+            <SelectTrigger className="w-[110px] h-9 text-xs bg-background/50 border-border/80 hover:border-border transition-colors rounded-lg">
               <SelectValue placeholder="Pilih Tahun" />
             </SelectTrigger>
             <SelectContent>
@@ -369,21 +369,24 @@ export default function Dashboard() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map(s => (
-          <Card key={s.label} className="shadow-elegant hover:shadow-elevated transition-shadow">
-            <CardContent className="p-4">
+          <Card key={s.label} className="border border-border/60 bg-card/60 backdrop-blur-md shadow-elegant hover:-translate-y-0.5 transition-all duration-300 rounded-xl relative overflow-hidden group">
+            {/* Soft background glow matching card color */}
+            <div className={`absolute top-0 right-0 w-16 h-16 rounded-full opacity-10 blur-lg ${s.color === 'primary' ? 'bg-primary' : s.color === 'success' ? 'bg-success' : s.color === 'destructive' ? 'bg-destructive' : s.color === 'info' ? 'bg-info' : s.color === 'warning' ? 'bg-warning' : 'bg-accent'}`} />
+            
+            <CardContent className="p-4.5">
               <div className="flex items-start justify-between mb-3">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorMap[s.color]}`}>
-                  <s.icon className="h-4 w-4" />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorMap[s.color]}`}>
+                  <s.icon className="h-4.5 w-4.5" />
                 </div>
-                <span className={`text-[10px] font-medium flex items-center gap-0.5 ${s.up ? "text-success" : "text-muted-foreground"}`}>
+                <span className={`text-[10px] font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-full ${s.up ? "bg-success/10 text-success border border-success/25" : "bg-muted text-muted-foreground border border-border"}`}>
                   {s.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {s.trend}
                 </span>
               </div>
-              <div className="text-lg lg:text-xl font-bold tracking-tight">{s.value}</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">{s.label}</div>
+              <div className="text-xl lg:text-2xl font-black text-foreground tracking-tight mt-1">{s.value}</div>
+              <div className="text-[11px] font-semibold text-muted-foreground mt-0.5">{s.label}</div>
             </CardContent>
           </Card>
         ))}
