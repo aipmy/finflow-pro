@@ -1,4 +1,4 @@
-// Cache-buster: 2026-06-26T03:00:00
+// Cache-buster: 2026-06-26T03:05:00
 import { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet, FileText, FileType, Loader2, Award, TrendingUp, DollarSign, BarChart2,
@@ -37,7 +37,7 @@ const tooltipContentStyle = {
 };
 
 export default function Reports() {
-  console.log("Finflow Reports v1.0.3-cb");
+  console.log("Finflow Reports v1.0.4-cb");
   const [loading, setLoading] = useState(true);
   const currentYearStr = new Date().getFullYear().toString();
   const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
@@ -206,6 +206,7 @@ export default function Reports() {
               data={userDetailData}
               onBack={() => setSelectedUser(null)}
               loading={loadingUserDetail || !userDetailData}
+              selectedYear={selectedYear}
             />
           ) : (
             <SpenderPanel
@@ -215,7 +216,7 @@ export default function Reports() {
           )}
         </TabsContent>
         <TabsContent value="monthly">
-          <MonthlyBreakdownPanel data={data} />
+          <MonthlyBreakdownPanel data={data} selectedYear={selectedYear} />
         </TabsContent>
         <TabsContent value="transactions">
           <TransactionsPanel data={data} />
@@ -489,7 +490,7 @@ function SpenderPanel({ data, onSelectUser }: { data: any; onSelectUser: (userId
 /* =============================================================================
    USER DETAIL PANEL (DRILL-DOWN PER ORANG)
 ============================================================================= */
-function UserDetailPanel({ data, onBack, loading }: { data: any; onBack: () => void; loading: boolean }) {
+function UserDetailPanel({ data, onBack, loading, selectedYear }: { data: any; onBack: () => void; loading: boolean; selectedYear: string }) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] gap-2 mt-3">
@@ -498,6 +499,20 @@ function UserDetailPanel({ data, onBack, loading }: { data: any; onBack: () => v
       </div>
     );
   }
+
+  const processedMonthlyTrend = useMemo(() => {
+    if (!data || !data.monthlyTrend) return [];
+    if (selectedYear === "all") return data.monthlyTrend;
+
+    return MONTHS_SHORT.map((m, idx) => {
+      const monthLabel = `${MONTHS_SHORT[idx]} ${selectedYear}`;
+      const found = data.monthlyTrend.find((item: any) => item.month === monthLabel);
+      return {
+        month: m,
+        value: found ? found.value : 0
+      };
+    });
+  }, [data?.monthlyTrend, selectedYear]);
 
   const user = data.user;
   const colorMap: Record<string, string> = {
@@ -614,9 +629,9 @@ function UserDetailPanel({ data, onBack, loading }: { data: any; onBack: () => v
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {data.monthlyTrend && data.monthlyTrend.length > 0 ? (
+            {processedMonthlyTrend && processedMonthlyTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={data.monthlyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart data={processedMonthlyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="userTrendGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
@@ -696,9 +711,35 @@ function UserDetailPanel({ data, onBack, loading }: { data: any; onBack: () => v
 /* =============================================================================
    MONTHLY BREAKDOWN PANEL
 ============================================================================= */
-function MonthlyBreakdownPanel({ data }: { data: any }) {
+function MonthlyBreakdownPanel({ data, selectedYear }: { data: any; selectedYear: string }) {
   const monthlyBreakdown = data.monthlyBreakdown || [];
   const categories = data.monthlyCategories || [];
+
+  const processedMonthlyBreakdown = useMemo(() => {
+    if (selectedYear === "all") return monthlyBreakdown;
+
+    return MONTHS_SHORT.map((m, idx) => {
+      const monthNumStr = String(idx + 1).padStart(2, "0");
+      const monthKey = `${selectedYear}-${monthNumStr}`;
+      const found = monthlyBreakdown.find((row: any) => row.monthKey === monthKey);
+      if (found) {
+        return {
+          ...found,
+          month: m
+        };
+      }
+
+      const emptyEntry: any = {
+        month: m,
+        monthKey: monthKey,
+        total: 0
+      };
+      categories.forEach((cat: string) => {
+        emptyEntry[cat] = 0;
+      });
+      return emptyEntry;
+    });
+  }, [monthlyBreakdown, categories, selectedYear]);
 
   return (
     <div className="space-y-4 mt-3">
@@ -709,9 +750,9 @@ function MonthlyBreakdownPanel({ data }: { data: any }) {
           <p className="text-xs text-muted-foreground">Visualisasi distribusi bulanan pengeluaran</p>
         </CardHeader>
         <CardContent>
-          {monthlyBreakdown.length > 0 ? (
+          {processedMonthlyBreakdown.length > 0 ? (
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={monthlyBreakdown} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={18}>
+              <BarChart data={processedMonthlyBreakdown} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={18}>
                 <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={10} angle={-30} textAnchor="end" height={60} tickLine={false} axisLine={false} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
