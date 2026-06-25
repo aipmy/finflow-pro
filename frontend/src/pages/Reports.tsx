@@ -1,4 +1,4 @@
-// Cache-buster: 2026-06-26T02:50:00
+// Cache-buster: 2026-06-26T03:00:00
 import { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet, FileText, FileType, Loader2, Award, TrendingUp, DollarSign, BarChart2,
@@ -21,12 +21,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 
-const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--info))", "hsl(var(--warning))", "hsl(var(--success))", "hsl(var(--destructive))", "hsl(var(--primary-glow))", "#8b5cf6", "#f59e0b", "#06b6d4", "#ec4899", "#84cc16"];
+const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--info))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--destructive))", "#8b5cf6", "#ec4899", "#f59e0b", "#06b6d4", "#84cc16"];
 const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
 
+const tooltipContentStyle = {
+  background: "rgba(15, 23, 42, 0.95)",
+  backdropFilter: "blur(12px)",
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  borderRadius: "12px",
+  boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.5)",
+  fontSize: "12px",
+  color: "#fff",
+  padding: "8px 12px"
+};
+
 export default function Reports() {
-  console.log("Finflow Reports v1.0.2-cb");
+  console.log("Finflow Reports v1.0.3-cb");
   const [loading, setLoading] = useState(true);
   const currentYearStr = new Date().getFullYear().toString();
   const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
@@ -382,17 +393,21 @@ function SpenderPanel({ data, onSelectUser }: { data: any; onSelectUser: (userId
           <CardContent>
             {data.byUser && data.byUser.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.byUser.slice(0, 10)} layout="vertical" margin={{ left: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v / 1e6}jt`} />
-                  <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={110} />
+                <BarChart data={data.byUser.slice(0, 10)} layout="vertical" margin={{ left: 5 }} barSize={14}>
+                  <defs>
+                    <linearGradient id="spenderBarGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" />
+                      <stop offset="100%" stopColor="hsl(var(--accent))" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" horizontal={false} opacity={0.4} />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
+                  <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} width={110} />
                   <Tooltip
-                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                    itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                    labelStyle={{ color: "hsl(var(--popover-foreground))" }}
-                    formatter={(v: number) => formatRupiah(v)}
+                    contentStyle={tooltipContentStyle}
+                    formatter={(v: number) => [formatRupiah(v), "Total"]}
                   />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="value" fill="url(#spenderBarGrad)" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -543,13 +558,27 @@ function UserDetailPanel({ data, onBack, loading }: { data: any; onBack: () => v
               <>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
-                    <Pie data={data.byCategory} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2} dataKey="value">
-                      {data.byCategory.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    <Pie
+                      data={data.byCategory}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {data.byCategory.map((_: any, i: number) => (
+                        <Cell
+                          key={i}
+                          fill={COLORS[i % COLORS.length]}
+                          stroke="hsl(var(--card))"
+                          strokeWidth={3}
+                        />
+                      ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                      formatter={(v: number) => formatRupiah(v)}
+                      contentStyle={tooltipContentStyle}
+                      formatter={(v: number) => [formatRupiah(v), "Jumlah"]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -590,18 +619,22 @@ function UserDetailPanel({ data, onBack, loading }: { data: any; onBack: () => v
                 <AreaChart data={data.monthlyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="userTrendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="userTrendStroke" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" />
+                      <stop offset="100%" stopColor="hsl(var(--accent))" />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v / 1e6}jt`} />
+                  <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
                   <Tooltip
-                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                    formatter={(v: number) => formatRupiah(v)}
+                    contentStyle={tooltipContentStyle}
+                    formatter={(v: number) => [formatRupiah(v), "Tren"]}
                   />
-                  <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#userTrendGrad)" />
+                  <Area type="monotone" dataKey="value" stroke="url(#userTrendStroke)" strokeWidth={3} fill="url(#userTrendGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -678,19 +711,23 @@ function MonthlyBreakdownPanel({ data }: { data: any }) {
         <CardContent>
           {monthlyBreakdown.length > 0 ? (
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={monthlyBreakdown} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={10} angle={-30} textAnchor="end" height={60} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v / 1e6}jt`} />
+              <BarChart data={monthlyBreakdown} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={18}>
+                <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={10} angle={-30} textAnchor="end" height={60} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
-                  itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                  labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: "bold" }}
-                  formatter={(v: number) => formatRupiah(v)}
+                  contentStyle={tooltipContentStyle}
+                  formatter={(v: number) => [formatRupiah(v)]}
                 />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
                 {categories.map((cat: string, i: number) => (
-                  <Bar key={cat} dataKey={cat} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === categories.length - 1 ? [4, 4, 0, 0] : undefined} />
+                  <Bar
+                    key={cat}
+                    dataKey={cat}
+                    stackId="a"
+                    fill={COLORS[i % COLORS.length]}
+                    radius={i === categories.length - 1 ? [3, 3, 0, 0] : undefined}
+                  />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -993,17 +1030,21 @@ function ReportPanel({ data, title }: { data: { name: string; value: number }[];
         <CardHeader className="pb-2"><CardTitle className="text-base">{title}</CardTitle></CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data} layout="vertical" margin={{ left: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v / 1e6}jt`} />
-              <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={110} />
+            <BarChart data={data} layout="vertical" margin={{ left: 5 }} barSize={14}>
+              <defs>
+                <linearGradient id="reportBarGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" />
+                  <stop offset="100%" stopColor="hsl(var(--accent))" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" horizontal={false} opacity={0.4} />
+              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
+              <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} width={110} />
               <Tooltip
-                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                labelStyle={{ color: "hsl(var(--popover-foreground))" }}
-                formatter={(v: number) => formatRupiah(v)}
+                contentStyle={tooltipContentStyle}
+                formatter={(v: number) => [formatRupiah(v), "Total"]}
               />
-              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="value" fill="url(#reportBarGrad)" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -1013,14 +1054,27 @@ function ReportPanel({ data, title }: { data: { name: string; value: number }[];
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
-                {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={90}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {data.map((_, i) => (
+                  <Cell
+                    key={i}
+                    fill={COLORS[i % COLORS.length]}
+                    stroke="hsl(var(--card))"
+                    strokeWidth={3}
+                  />
+                ))}
               </Pie>
               <Tooltip
-                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                labelStyle={{ color: "hsl(var(--popover-foreground))" }}
-                formatter={(v: number) => formatRupiah(v)}
+                contentStyle={tooltipContentStyle}
+                formatter={(v: number) => [formatRupiah(v), "Jumlah"]}
               />
             </PieChart>
           </ResponsiveContainer>
