@@ -1,3 +1,4 @@
+// Cache-buster: 2026-06-26T02:50:00
 import { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet, FileText, FileType, Loader2, Award, TrendingUp, DollarSign, BarChart2,
@@ -25,6 +26,7 @@ const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
 
 export default function Reports() {
+  console.log("Finflow Reports v1.0.1-cb");
   const [loading, setLoading] = useState(true);
   const currentYearStr = new Date().getFullYear().toString();
   const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
