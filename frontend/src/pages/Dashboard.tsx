@@ -83,6 +83,10 @@ export default function Dashboard() {
   const realized = sumBy(requests, r => !!r.financeRealization, r => Number(r.financeRealization?.realizedAmount || 0)) + manualRealized;
   const outstanding = approved - sumBy(requests, r => !!r.financeRealization, r => Number(r.financeRealization?.realizedAmount || 0));
   const pending = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status)).length;
+  
+  // New counts for Dashboard metrics
+  const newSubmissionsCount = requests.filter(r => r.status !== "DRAFT" && isCurrentMonth(r.createdAt)).length;
+  const needRevisionCount = requests.filter(r => r.status === "NEED_REVISION").length;
 
   // Only count approved/realized requests in the current month for monthly expenses
   const totalExpensesMonth = sumBy(requests, r => 
@@ -245,17 +249,17 @@ export default function Dashboard() {
   const stats = isStaff ? [
     { label: "Total Pengajuan Saya (Bulan Ini)", value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
     { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
-    { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
     { label: "Menunggu Approval", value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
+    { label: "Perlu Tindakan / Revisi", value: `${needRevisionCount} pengajuan`, icon: AlertCircle, trend: "revisi", up: false, color: "destructive" },
   ] : [
-    { label: "Total Pengeluaran Bulan Ini", value: formatRupiah(totalExpensesMonth), icon: FileText, trend: "aktif", up: true, color: "primary" },
-    { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
-    { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
-    { label: "Total Realisasi", value: formatRupiah(realized), icon: Wallet, trend: "terbayar", up: true, color: "info" },
-    { label: "Outstanding", value: formatRupiah(outstanding), icon: Clock, trend: "pending", up: false, color: "warning" },
+    { label: "Total Pengeluaran Bulan Ini", value: formatRupiah(totalExpensesMonth), icon: FileText, trend: "realisasi", up: true, color: "primary" },
+    { label: "Menunggu Approval (Pending)", value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
+    { label: "Total Pengajuan Baru (Bulan Ini)", value: `${newSubmissionsCount} pengajuan`, icon: FileText, trend: "aktif", up: true, color: "info" },
+    { label: "Outstanding (Menunggu Pembayaran)", value: formatRupiah(outstanding), icon: Clock, trend: "pending", up: false, color: "warning" },
     { label: "Sisa Petty Cash", value: formatRupiah(pettyCash.balance), icon: Coins, trend: pettyCash.initial > 0 ? `${Math.round(pettyCash.balance / pettyCash.initial * 100)}%` : "0%", up: true, color: "accent" },
     { label: "Stok Hampir Habis", value: `${lowStockCount} item`, icon: Package, trend: "perlu restock", up: false, color: "destructive" },
-    { label: "Menunggu Approval", value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
+    { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
+    { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
   ];
 
   if (loading) {
