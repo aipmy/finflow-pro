@@ -65,18 +65,30 @@ export default function Dashboard() {
     loadDashboardData();
   }, []);
 
+  const isCurrentMonth = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  };
+
   const manualPettyCashOut = (pettyCash.transactions || []).filter((t: any) => 
     t.type === "OUT" && (!t.refRequestId || t.refRequestId === "-" || t.refRequestId === "")
   );
 
   const manualRealized = manualPettyCashOut.reduce((acc: number, t: any) => acc + Number(t.amount), 0);
 
-  const total = sumBy(requests, r => r.status !== "DRAFT", r => Number(r.amount));
+  const total = sumBy(requests, r => r.status !== "DRAFT" && isCurrentMonth(r.createdAt), r => Number(r.amount));
   const approved = sumBy(requests, r => ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "WAITING_VERIFICATION", "CLOSED"].includes(r.status), r => Number(r.amount));
   const rejected = sumBy(requests, r => r.status === "REJECTED", r => Number(r.amount));
   const realized = sumBy(requests, r => !!r.financeRealization, r => Number(r.financeRealization?.realizedAmount || 0)) + manualRealized;
   const outstanding = approved - sumBy(requests, r => !!r.financeRealization, r => Number(r.financeRealization?.realizedAmount || 0));
   const pending = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status)).length;
+
+  // Only count approved/realized requests in the current month for monthly expenses
+  const totalExpensesMonth = sumBy(requests, r => 
+    isCurrentMonth(r.createdAt) && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status), 
+    r => Number(r.amount)
+  );
 
   const byCategory = categories.map(c => {
     let sum = 0;
@@ -231,12 +243,12 @@ export default function Dashboard() {
   const monthlyTrend = getMonthlyTrend();
 
   const stats = isStaff ? [
-    { label: "Total Pengajuan Saya", value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
+    { label: "Total Pengajuan Saya (Bulan Ini)", value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
     { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
     { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
     { label: "Menunggu Approval", value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
   ] : [
-    { label: "Total Pengajuan Bulan Ini", value: formatRupiah(total), icon: FileText, trend: "aktif", up: true, color: "primary" },
+    { label: "Total Pengeluaran Bulan Ini", value: formatRupiah(totalExpensesMonth), icon: FileText, trend: "aktif", up: true, color: "primary" },
     { label: "Total Disetujui", value: formatRupiah(approved), icon: CheckCircle2, trend: "approved", up: true, color: "success" },
     { label: "Total Ditolak", value: formatRupiah(rejected), icon: AlertCircle, trend: "rejected", up: false, color: "destructive" },
     { label: "Total Realisasi", value: formatRupiah(realized), icon: Wallet, trend: "terbayar", up: true, color: "info" },
