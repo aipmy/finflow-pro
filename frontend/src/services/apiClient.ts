@@ -466,6 +466,12 @@ export const apiClient = {
     }
   },
 
+  notifications: {
+    list: async () => request("/notifications"),
+    markRead: async (id: string) => request(`/notifications/${id}/read`, { method: "PATCH" }),
+    markAllRead: async () => request("/notifications/read-all", { method: "POST" })
+  },
+
   audit: {
     list: async (filters: any = {}) => {
       const params = new URLSearchParams();

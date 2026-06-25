@@ -68,6 +68,16 @@ export const financeRepository = {
         }
       });
 
+      // 7. Notify requester
+      await tx.notification.create({
+        data: {
+          userId: request.requesterId,
+          title: "Dana Pengajuan Direalisasikan",
+          message: `Dana untuk pengajuan ${request.code} - "${request.title}" senilai Rp ${Number(realizedAmount).toLocaleString('id-ID')} telah direalisasikan/dibayarkan.`,
+          read: false
+        }
+      });
+
       return realization;
     });
   },
@@ -217,6 +227,26 @@ export const financeRepository = {
         }
       });
 
+      // Notify Finance & Admin
+      const financeAndAdmins = await tx.user.findMany({
+        where: {
+          role: {
+            name: { in: ["finance", "admin"] }
+          },
+          active: true
+        }
+      });
+      if (financeAndAdmins.length > 0) {
+        await tx.notification.createMany({
+          data: financeAndAdmins.map(u => ({
+            userId: u.id,
+            title: "Bukti Pertanggungjawaban Baru",
+            message: `Bukti pertanggungjawaban diunggah untuk pengajuan ${request?.code || ''} - "${request?.title || ''}" dan menunggu verifikasi.`,
+            read: false
+          }))
+        });
+      }
+
       return { success: true };
     });
   },
@@ -250,6 +280,18 @@ export const financeRepository = {
           ipAddress
         }
       });
+
+      // Notify requester
+      if (request) {
+        await tx.notification.create({
+          data: {
+            userId: request.requesterId,
+            title: "Pertanggungjawaban Terverifikasi",
+            message: `Bukti pertanggungjawaban untuk pengajuan ${request.code} - "${request.title}" telah diverifikasi dan pengajuan ditutup (Closed).`,
+            read: false
+          }
+        });
+      }
 
       return { success: true };
     });
@@ -289,6 +331,18 @@ export const financeRepository = {
           ipAddress
         }
       });
+
+      // Notify requester
+      if (request) {
+        await tx.notification.create({
+          data: {
+            userId: request.requesterId,
+            title: "Bukti Pertanggungjawaban Ditolak",
+            message: `Bukti pertanggungjawaban untuk pengajuan ${request.code} - "${request.title}" ditolak. Silakan unggah bukti yang benar. Catatan: ${note || "-"}`,
+            read: false
+          }
+        });
+      }
 
       return { success: true };
     });

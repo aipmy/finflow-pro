@@ -209,6 +209,35 @@ export const requestRepository = {
         }
       });
 
+      // 7. Add notification for supervisor/manager/admin
+      if (request.status === "SUBMITTED") {
+        const requester = await tx.user.findUnique({
+          where: { id: userId },
+          select: { name: true }
+        });
+        const requesterName = requester ? requester.name : "Staff";
+        
+        const targets = await tx.user.findMany({
+          where: {
+            role: {
+              name: { in: ["supervisor", "manager", "admin"] }
+            },
+            active: true
+          }
+        });
+
+        if (targets.length > 0) {
+          await tx.notification.createMany({
+            data: targets.map(u => ({
+              userId: u.id,
+              title: "Pengajuan Baru Menunggu Approval",
+              message: `Pengajuan ${request.code} - "${request.title}" senilai Rp ${Number(request.amount).toLocaleString('id-ID')} diajukan oleh ${requesterName}.`,
+              read: false
+            }))
+          });
+        }
+      }
+
       return request;
     });
   },
@@ -285,6 +314,35 @@ export const requestRepository = {
           ipAddress
         }
       });
+
+      // 5. Add notification for supervisor/manager/admin if submitted
+      if (data.status === "SUBMITTED") {
+        const requester = await tx.user.findUnique({
+          where: { id: userId },
+          select: { name: true }
+        });
+        const requesterName = requester ? requester.name : "Staff";
+        
+        const targets = await tx.user.findMany({
+          where: {
+            role: {
+              name: { in: ["supervisor", "manager", "admin"] }
+            },
+            active: true
+          }
+        });
+
+        if (targets.length > 0) {
+          await tx.notification.createMany({
+            data: targets.map(u => ({
+              userId: u.id,
+              title: "Pengajuan Baru Menunggu Approval",
+              message: `Pengajuan ${request.code} - "${request.title}" senilai Rp ${Number(request.amount).toLocaleString('id-ID')} diajukan oleh ${requesterName}.`,
+              read: false
+            }))
+          });
+        }
+      }
 
       return request;
     });

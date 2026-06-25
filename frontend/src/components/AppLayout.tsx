@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, CheckSquare, Package, Wallet,
   Coins, BarChart3, History, Users, Settings, LogOut, Menu, Plus, X,
-  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar, ChevronDown, RefreshCw
+  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar, ChevronDown, RefreshCw, Bell
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -68,13 +68,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const dept = departments.find(d => d.id === user?.department)?.name;
 
   const [badgeCounts, setBadgeCounts] = useState<{ approvals: number; lowStock: number; revisions: number }>({ approvals: 0, lowStock: 0, revisions: 0 });
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchBadgeCounts() {
+    async function fetchBadgeCountsAndNotifications() {
       try {
-        const [reqs, items] = await Promise.all([
+        const [reqs, items, notifs] = await Promise.all([
           apiClient.requests.list().catch(() => []),
-          apiClient.inventory.list().catch(() => [])
+          apiClient.inventory.list().catch(() => []),
+          apiClient.notifications.list().catch(() => [])
         ]);
 
         const role = user?.role?.toLowerCase() || "";
@@ -101,17 +105,72 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         }).length;
 
         setBadgeCounts({ approvals, lowStock, revisions });
+        setNotifications(notifs || []);
+        setUnreadCount((notifs || []).filter((n: any) => !n.read).length);
       } catch (err) {
         // Suppress errors for background fetch
       }
     }
 
     if (user) {
-      fetchBadgeCounts();
-      const interval = setInterval(fetchBadgeCounts, 15000);
+      fetchBadgeCountsAndNotifications();
+      const interval = setInterval(fetchBadgeCountsAndNotifications, 15000);
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  const handleNotificationClick = async (notif: any) => {
+    setNotificationsOpen(false);
+    
+    // Mark as read in UI instantly
+    setNotifications(prev => 
+      prev.map(n => n.id === notif.id ? { ...n, read: true } : n)
+    );
+    setUnreadCount(prev => Math.max(0, prev - (notif.read ? 0 : 1)));
+
+    // Send API request in background
+    if (!notif.read) {
+      try {
+        await apiClient.notifications.markRead(notif.id);
+      } catch (err) {
+        // Suppress
+      }
+    }
+
+    // Determine target page based on notification title/message or code
+    const requestMatch = notif.message.match(/REQ-\d{4}-\d{3}/);
+    if (requestMatch) {
+      const code = requestMatch[0];
+      try {
+        const reqs = await apiClient.requests.list();
+        const matchedReq = reqs.find((r: any) => r.code === code);
+        if (matchedReq) {
+          nav2(`/requests/${matchedReq.id}`);
+        } else {
+          nav2("/requests");
+        }
+      } catch (err) {
+        nav2("/requests");
+      }
+    } else if (notif.title.includes("Stok")) {
+      nav2("/inventory");
+    } else if (notif.title.includes("Approval") || notif.title.includes("Verifikasi")) {
+      nav2("/approvals");
+    } else {
+      nav2("/requests");
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadCount(0);
+    try {
+      await apiClient.notifications.markAllRead();
+      toast.success("Semua notifikasi ditandai dibaca");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memperbarui notifikasi");
+    }
+  };
 
   const getBadgeForPath = (to: string) => {
     if (to === "/approvals") return badgeCounts.approvals;
@@ -356,10 +415,87 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
+            
+            {/* Notification Bell Dropdown */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-foreground/80 hover:text-foreground"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[8px] font-extrabold flex items-center justify-center border border-card shadow-sm animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </Button>
+
+              {notificationsOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setNotificationsOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-80 max-h-[420px] rounded-xl border border-border bg-popover text-popover-foreground shadow-lg flex flex-col z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="p-3 border-b border-border flex items-center justify-between flex-shrink-0">
+                      <span className="font-semibold text-xs text-foreground">Aktivitas Terbaru</span>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={handleMarkAllRead}
+                          className="text-[10px] text-primary hover:underline font-semibold"
+                        >
+                          Tandai semua dibaca
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex-1 overflow-y-auto divide-y divide-border/60 max-h-[320px] scrollbar-thin">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-muted-foreground">
+                          Tidak ada aktivitas atau notifikasi terbaru.
+                        </div>
+                      ) : (
+                        notifications.map(n => (
+                          <div
+                            key={n.id}
+                            onClick={() => handleNotificationClick(n)}
+                            className={cn(
+                              "p-3.5 text-left cursor-pointer hover:bg-accent/40 transition-colors flex items-start gap-3",
+                              !n.read && "bg-primary/5 hover:bg-primary/10"
+                            )}
+                          >
+                            <span className={cn(
+                              "w-2 h-2 rounded-full mt-1.5 flex-shrink-0",
+                              n.read ? "bg-muted-foreground/30" : "bg-primary"
+                            )} />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-xs text-foreground leading-snug">{n.title}</div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{n.message}</div>
+                              <div className="text-[9px] text-muted-foreground/60 mt-1 font-medium">
+                                {new Date(n.createdAt).toLocaleDateString("id-ID", {
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="p-2.5 text-center border-t border-border flex-shrink-0">
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        Menampilkan hingga 20 notifikasi terbaru
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="relative">
               <button 
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-2 ml-2 pl-3 border-l border-border hover:opacity-80 transition-opacity focus:outline-none"
+                className="flex items-center gap-2 ml-1 pl-2.5 border-l border-border hover:opacity-80 transition-opacity focus:outline-none"
               >
                 <div className="w-8 h-8 rounded-full gradient-accent flex items-center justify-center text-xs font-bold text-accent-foreground">
                   {user?.name?.split(" ").map((s: string) => s[0]).slice(0, 2).join("") || "U"}

@@ -146,6 +146,28 @@ export const inventoryRepository = {
         }
       });
 
+      // 4. Check if stock falls below minimum threshold
+      if (nextStock <= item.minStock) {
+        const warehouseAdmins = await tx.user.findMany({
+          where: {
+            role: {
+              name: { in: ["admin", "manager", "supervisor"] }
+            },
+            active: true
+          }
+        });
+        if (warehouseAdmins.length > 0) {
+          await tx.notification.createMany({
+            data: warehouseAdmins.map(u => ({
+              userId: u.id,
+              title: "Stok Barang Hampir Habis",
+              message: `Stok barang "${item.name}" saat ini tersisa ${nextStock} item (batas minimum: ${item.minStock}).`,
+              read: false
+            }))
+          });
+        }
+      }
+
       return movement;
     });
   },
