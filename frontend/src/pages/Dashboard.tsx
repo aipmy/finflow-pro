@@ -22,6 +22,26 @@ import {
 const sumBy = <T,>(arr: T[], pred: (x: T) => boolean, val: (x: T) => number) =>
   arr.filter(pred).reduce((a, b) => a + val(b), 0);
 
+const tooltipContentStyle = {
+  background: "rgba(15, 23, 42, 0.95)",
+  backdropFilter: "blur(12px)",
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  borderRadius: "12px",
+  boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.5)",
+  fontSize: "12px",
+  color: "#fff",
+  padding: "8px 12px"
+};
+
+const tooltipItemStyle = {
+  color: "#fff"
+};
+
+const tooltipLabelStyle = {
+  color: "#cbd5e1",
+  fontWeight: "bold"
+};
+
 export default function Dashboard() {
   const [requests, setRequests] = useState<any[]>([]);
   const [trendPeriod, setTrendPeriod] = useState<string>(new Date().getFullYear().toString());
@@ -188,7 +208,7 @@ export default function Dashboard() {
   const latest = [...requests].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
   const pendingApprovals = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status)).slice(0, 4);
 
-  const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--info))", "hsl(var(--warning))", "hsl(var(--success))", "hsl(var(--destructive))", "hsl(var(--primary-glow))"];
+  const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--info))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--destructive))", "#8b5cf6", "#ec4899", "#f59e0b", "#06b6d4", "#84cc16"];
 
   const colorMap: Record<string, string> = {
     primary: "bg-primary/10 text-primary",
@@ -402,21 +422,25 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={monthlyTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="source-color" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="source-color" stopOpacity={0} />
+                  <linearGradient id="dashboardTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="dashboardTrendStroke" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" />
+                    <stop offset="100%" stopColor="hsl(var(--accent))" />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v / 1e6}jt`} />
+                <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                  itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                  labelStyle={{ color: "hsl(var(--popover-foreground))" }}
-                  formatter={(v: number) => formatRupiah(v)}
+                  contentStyle={tooltipContentStyle}
+                  itemStyle={tooltipItemStyle}
+                  labelStyle={tooltipLabelStyle}
+                  formatter={(v: number) => [formatRupiah(v), "Pengeluaran"]}
                 />
-                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#g1)" />
+                <Area type="monotone" dataKey="value" stroke="url(#dashboardTrendStroke)" strokeWidth={3} fill="url(#dashboardTrendGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -436,15 +460,30 @@ export default function Dashboard() {
               <>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
-                    <Pie data={byCategory} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2} dataKey="value">
-                      {byCategory.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    <Pie
+                      data={byCategory}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {byCategory.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={PIE_COLORS[i % PIE_COLORS.length]}
+                          stroke="hsl(var(--card))"
+                          strokeWidth={3}
+                        />
+                      ))}
                     </Pie>
-                     <Tooltip 
-                       contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} 
-                       itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                       labelStyle={{ color: "hsl(var(--popover-foreground))" }}
-                       formatter={(v: number) => formatRupiah(v)} 
-                     />
+                    <Tooltip
+                      contentStyle={tooltipContentStyle}
+                      itemStyle={tooltipItemStyle}
+                      labelStyle={tooltipLabelStyle}
+                      formatter={(v: number) => [formatRupiah(v), "Jumlah"]}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-1.5 mt-3 max-h-[140px] overflow-y-auto pr-1">

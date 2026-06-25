@@ -1,4 +1,4 @@
-// Cache-buster: 2026-06-26T03:05:00
+// Cache-buster: 2026-06-26T03:10:00
 import { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet, FileText, FileType, Loader2, Award, TrendingUp, DollarSign, BarChart2,
@@ -36,8 +36,17 @@ const tooltipContentStyle = {
   padding: "8px 12px"
 };
 
+const tooltipItemStyle = {
+  color: "#fff"
+};
+
+const tooltipLabelStyle = {
+  color: "#cbd5e1",
+  fontWeight: "bold"
+};
+
 export default function Reports() {
-  console.log("Finflow Reports v1.0.4-cb");
+  console.log("Finflow Reports v1.0.5-cb");
   const [loading, setLoading] = useState(true);
   const currentYearStr = new Date().getFullYear().toString();
   const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
@@ -406,6 +415,8 @@ function SpenderPanel({ data, onSelectUser }: { data: any; onSelectUser: (userId
                   <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} width={110} />
                   <Tooltip
                     contentStyle={tooltipContentStyle}
+                    itemStyle={tooltipItemStyle}
+                    labelStyle={tooltipLabelStyle}
                     formatter={(v: number) => [formatRupiah(v), "Total"]}
                   />
                   <Bar dataKey="value" fill="url(#spenderBarGrad)" radius={[0, 4, 4, 0]} />
@@ -593,6 +604,8 @@ function UserDetailPanel({ data, onBack, loading, selectedYear }: { data: any; o
                     </Pie>
                     <Tooltip
                       contentStyle={tooltipContentStyle}
+                      itemStyle={tooltipItemStyle}
+                      labelStyle={tooltipLabelStyle}
                       formatter={(v: number) => [formatRupiah(v), "Jumlah"]}
                     />
                   </PieChart>
@@ -647,6 +660,8 @@ function UserDetailPanel({ data, onBack, loading, selectedYear }: { data: any; o
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
                   <Tooltip
                     contentStyle={tooltipContentStyle}
+                    itemStyle={tooltipItemStyle}
+                    labelStyle={tooltipLabelStyle}
                     formatter={(v: number) => [formatRupiah(v), "Tren"]}
                   />
                   <Area type="monotone" dataKey="value" stroke="url(#userTrendStroke)" strokeWidth={3} fill="url(#userTrendGrad)" />
@@ -758,6 +773,8 @@ function MonthlyBreakdownPanel({ data, selectedYear }: { data: any; selectedYear
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `${v / 1e6}jt`} />
                 <Tooltip
                   contentStyle={tooltipContentStyle}
+                  itemStyle={tooltipItemStyle}
+                  labelStyle={tooltipLabelStyle}
                   formatter={(v: number) => [formatRupiah(v)]}
                 />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
@@ -1083,6 +1100,8 @@ function ReportPanel({ data, title }: { data: { name: string; value: number }[];
               <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} width={110} />
               <Tooltip
                 contentStyle={tooltipContentStyle}
+                itemStyle={tooltipItemStyle}
+                labelStyle={tooltipLabelStyle}
                 formatter={(v: number) => [formatRupiah(v), "Total"]}
               />
               <Bar dataKey="value" fill="url(#reportBarGrad)" radius={[0, 4, 4, 0]} />
@@ -1115,6 +1134,8 @@ function ReportPanel({ data, title }: { data: { name: string; value: number }[];
               </Pie>
               <Tooltip
                 contentStyle={tooltipContentStyle}
+                itemStyle={tooltipItemStyle}
+                labelStyle={tooltipLabelStyle}
                 formatter={(v: number) => [formatRupiah(v), "Jumlah"]}
               />
             </PieChart>
