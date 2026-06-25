@@ -22,10 +22,9 @@ export async function getAggregates(filters = {}) {
     }
   }
 
-  // Fetch requests that are not in DRAFT or REJECTED status to represent actual or approved expenses
-  // Normally reports show approved/realized or all submitted requests. Let's include everything except DRAFT/REJECTED.
+  // Fetch requests that are in REALIZED or CLOSED status to represent actual realized expenses
   where.status = {
-    notIn: ["DRAFT", "REJECTED"],
+    in: ["REALIZED", "CLOSED"],
   };
 
   const requests = await prisma.request.findMany({
@@ -140,7 +139,7 @@ export async function getAggregates(filters = {}) {
 
   const allRequestsForYears = await prisma.request.findMany({
     select: { createdAt: true },
-    where: { status: { notIn: ["DRAFT", "REJECTED"] } }
+    where: { status: { in: ["REALIZED", "CLOSED"] } }
   });
   const years = Array.from(
     new Set(allRequestsForYears.map(r => new Date(r.createdAt).getFullYear()))

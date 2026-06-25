@@ -84,20 +84,27 @@ export default function Dashboard() {
   const outstanding = approved - sumBy(requests, r => !!r.financeRealization, r => Number(r.financeRealization?.realizedAmount || 0));
   const pending = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status)).length;
   
+  // Total nominal Rupiah pending approval
+  const pendingAmount = sumBy(requests, r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status), r => Number(r.amount));
+  
   // New counts for Dashboard metrics
   const newSubmissionsCount = requests.filter(r => r.status !== "DRAFT" && isCurrentMonth(r.createdAt)).length;
   const needRevisionCount = requests.filter(r => r.status === "NEED_REVISION").length;
 
-  // Only count approved/realized requests in the current month for monthly expenses
-  const totalExpensesMonth = sumBy(requests, r => 
-    isCurrentMonth(r.createdAt) && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status), 
-    r => Number(r.amount)
-  );
+  // Only count approved/realized requests in the current month for monthly expenses based on realization/approval date
+  const totalExpensesMonth = sumBy(requests, r => {
+    if (!["REALIZED", "CLOSED"].includes(r.status)) return false;
+    if (r.financeRealization) {
+      return isCurrentMonth(r.financeRealization.createdAt);
+    }
+    return isCurrentMonth(r.updatedAt);
+  }, r => Number(r.financeRealization?.realizedAmount || r.amount));
 
   const byCategory = categories.map(c => {
     let sum = 0;
     requests.forEach(r => {
-      if (r.status === "DRAFT") return;
+      // Only include realized/closed requests in category distribution
+      if (!["REALIZED", "CLOSED"].includes(r.status)) return;
       if (r.items && r.items.length > 0) {
         r.items.forEach((it: any) => {
           if (it.categoryId === c.id) {
@@ -253,7 +260,7 @@ export default function Dashboard() {
     { label: "Perlu Tindakan / Revisi", value: `${needRevisionCount} pengajuan`, icon: AlertCircle, trend: "revisi", up: false, color: "destructive" },
   ] : [
     { label: "Total Pengeluaran Bulan Ini", value: formatRupiah(totalExpensesMonth), icon: FileText, trend: "realisasi", up: true, color: "primary" },
-    { label: "Menunggu Approval (Pending)", value: `${pending} pengajuan`, icon: Clock, trend: "perlu tindakan", up: false, color: "warning" },
+    { label: "Nominal Menunggu Approval", value: formatRupiah(pendingAmount), icon: Clock, trend: `${pending} pengajuan`, up: false, color: "warning" },
     { label: "Total Pengajuan Baru (Bulan Ini)", value: `${newSubmissionsCount} pengajuan`, icon: FileText, trend: "aktif", up: true, color: "info" },
     { label: "Outstanding (Menunggu Pembayaran)", value: formatRupiah(outstanding), icon: Clock, trend: "pending", up: false, color: "warning" },
     { label: "Sisa Petty Cash", value: formatRupiah(pettyCash.balance), icon: Coins, trend: pettyCash.initial > 0 ? `${Math.round(pettyCash.balance / pettyCash.initial * 100)}%` : "0%", up: true, color: "accent" },
