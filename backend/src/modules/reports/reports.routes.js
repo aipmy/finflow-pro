@@ -9,6 +9,7 @@ router.use(requireAuth);
 router.use(requirePermission("reports:read"));
 
 router.get("/aggregates", reportsController.getAggregates);
+router.get("/user-detail/:userId", reportsController.getUserDetail);
 router.get("/export/excel", reportsController.exportExcel);
 router.get("/export/pdf", reportsController.exportPdf);
 router.get("/export/docx", reportsController.exportDocx);

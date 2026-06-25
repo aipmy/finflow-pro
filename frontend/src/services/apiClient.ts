@@ -361,6 +361,14 @@ export const apiClient = {
       const queryString = params.toString() ? `?${params.toString()}` : "";
       return request(`/reports/aggregates${queryString}`);
     },
+    getUserDetail: async (userId: string, filters: any = {}) => {
+      const params = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key]) params.append(key, filters[key]);
+      });
+      const queryString = params.toString() ? `?${params.toString()}` : "";
+      return request(`/reports/user-detail/${userId}${queryString}`);
+    },
     downloadExport: async (format: "excel" | "pdf" | "docx") => {
       const token = getAccessToken();
       const response = await fetch(`${API_BASE}/reports/export/${format}`, {

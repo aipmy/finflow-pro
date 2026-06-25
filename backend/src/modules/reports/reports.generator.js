@@ -1,7 +1,6 @@
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle } from "docx";
-import { prisma } from "../../core/database.js";
 
 // Helper to format currency
 const formatRupiah = (val) => {
@@ -12,53 +11,50 @@ const formatRupiah = (val) => {
   }).format(val);
 };
 
-// Fetch data for reports export
-async function getExportData(filters = {}) {
-  const where = {
-    status: { notIn: ["DRAFT", "REJECTED"] }
-  };
-
+// Helper to format period label
+function getPeriodLabel(filters) {
   if (filters.startDate && filters.endDate) {
-    where.createdAt = {
-      gte: new Date(filters.startDate),
-      lte: new Date(filters.endDate),
-    };
-  } else if (filters.year) {
-    const year = parseInt(filters.year, 10);
-    if (filters.month) {
-      const month = parseInt(filters.month, 10);
-      const start = new Date(year, month - 1, 1);
-      const end = new Date(year, month, 0, 23, 59, 59, 999);
-      where.createdAt = { gte: start, lte: end };
-    } else {
-      const start = new Date(year, 0, 1);
-      const end = new Date(year, 11, 31, 23, 59, 59, 999);
-      where.createdAt = { gte: start, lte: end };
-    }
+    return `Periode: ${new Date(filters.startDate).toLocaleDateString("id-ID")} - ${new Date(filters.endDate).toLocaleDateString("id-ID")}`;
   }
-
-  return prisma.request.findMany({
-    where,
-    include: {
-      category: true,
-      department: true,
-      site: true,
-      requester: true
-    },
-    orderBy: { createdAt: "desc" }
-  });
+  if (filters.year && filters.year !== "all") {
+    if (filters.month && filters.month !== "all") {
+      const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      return `Periode: ${monthNames[parseInt(filters.month, 10) - 1]} ${filters.year}`;
+    }
+    return `Periode: Tahun ${filters.year}`;
+  }
+  return "Periode: Semua Waktu";
 }
 
-export async function generateExcelReport(filters = {}) {
-  const requests = await getExportData(filters);
+export async function generateExcelReport(data, filters = {}) {
+  const transactions = data.allTransactions || [];
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Laporan Pengeluaran");
 
+  // Title Row
+  worksheet.mergeCells("A1:J1");
+  const titleCell = worksheet.getCell("A1");
+  titleCell.value = "FINFLOW PRO - LAPORAN AUDIT TRANSAKSI KEUANGAN";
+  titleCell.font = { bold: true, size: 14, color: { argb: "FF4F46E5" } };
+  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+  worksheet.getRow(1).height = 30;
+
+  // Period Row
+  worksheet.mergeCells("A2:J2");
+  const periodCell = worksheet.getCell("A2");
+  periodCell.value = getPeriodLabel(filters);
+  periodCell.font = { italic: true, size: 10, color: { argb: "FF6B7280" } };
+  periodCell.alignment = { vertical: "middle", horizontal: "center" };
+  worksheet.getRow(2).height = 20;
+
+  // Blank row
+  worksheet.addRow([]);
+
   worksheet.columns = [
-    { header: "Kode", key: "code", width: 15 },
-    { header: "Judul", key: "title", width: 25 },
+    { header: "Kode", key: "code", width: 18 },
+    { header: "Judul", key: "title", width: 30 },
     { header: "Tipe", key: "type", width: 18 },
-    { header: "Pemohon", key: "requester", width: 20 },
+    { header: "Pemohon", key: "requester", width: 22 },
     { header: "Departemen", key: "department", width: 18 },
     { header: "Site", key: "site", width: 15 },
     { header: "Kategori", key: "category", width: 18 },
@@ -67,29 +63,31 @@ export async function generateExcelReport(filters = {}) {
     { header: "Tanggal", key: "date", width: 15 }
   ];
 
-  // Style Header Row
-  worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
-  worksheet.getRow(1).fill = {
+  // Style Header Row (Row 4)
+  const headerRow = worksheet.getRow(4);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "FF4F46E5" } // Brand primary Indigo-600
   };
+  headerRow.height = 25;
 
   let totalAmount = 0;
-  requests.forEach((req) => {
-    const amt = Number(req.amount);
+  transactions.forEach((tx) => {
+    const amt = Number(tx.amount);
     totalAmount += amt;
     worksheet.addRow({
-      code: req.code,
-      title: req.title,
-      type: req.type,
-      requester: req.requester?.name || "-",
-      department: req.department?.name || "-",
-      site: req.site?.name || "-",
-      category: req.category?.name || "-",
+      code: tx.code,
+      title: tx.title,
+      type: tx.type === "PETTY_CASH" ? "Kas Kecil" : tx.type,
+      requester: tx.requesterName,
+      department: tx.departmentName,
+      site: tx.siteName,
+      category: tx.categoryName,
       amount: amt,
-      status: req.status,
-      date: new Date(req.createdAt).toLocaleDateString("id-ID")
+      status: tx.status,
+      date: new Date(tx.date).toLocaleDateString("id-ID")
     });
   });
 
@@ -98,19 +96,21 @@ export async function generateExcelReport(filters = {}) {
 
   // Add summary row
   const totalRow = worksheet.addRow({
-    code: "TOTAL",
+    code: "TOTAL REALISASI",
     amount: totalAmount
   });
   totalRow.getCell("code").font = { bold: true };
   totalRow.getCell("amount").font = { bold: true };
+  totalRow.height = 20;
 
   // Write to buffer
   const buffer = await workbook.xlsx.writeBuffer();
   return buffer;
 }
 
-export async function generatePdfReport(filters = {}) {
-  const requests = await getExportData(filters);
+export async function generatePdfReport(data, filters = {}) {
+  const transactions = data.allTransactions || [];
+  const stats = data.stats || {};
   
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40 });
@@ -121,76 +121,82 @@ export async function generatePdfReport(filters = {}) {
     doc.on("error", (err) => reject(err));
 
     // Header Title
-    doc.fontSize(20).fillColor("#4f46e5").text("FINFLOW PRO - LAPORAN KEUANGAN", { align: "center" });
-    doc.fontSize(10).fillColor("#6b7280").text(`Generated on: ${new Date().toLocaleDateString("id-ID")}`, { align: "center" });
-    doc.moveDown(2);
+    doc.fontSize(18).fillColor("#4f46e5").text("FINFLOW PRO - LAPORAN AUDIT KEUANGAN", { align: "center" });
+    doc.fontSize(10).fillColor("#6b7280").text(getPeriodLabel(filters), { align: "center" });
+    doc.text(`Dicetak pada: ${new Date().toLocaleDateString("id-ID")} ${new Date().toLocaleTimeString("id-ID")}`, { align: "center" });
+    doc.moveDown(1.5);
 
     // Summary Info
-    const totalAmount = requests.reduce((sum, r) => sum + Number(r.amount), 0);
-    doc.fontSize(12).fillColor("#1f2937").text(`Total Transaksi Disetujui: ${requests.length}`);
-    doc.text(`Total Nominal Pengeluaran: ${formatRupiah(totalAmount)}`);
+    const totalAmount = stats.totalRealizedAmount || 0;
+    doc.fontSize(11).fillColor("#1f2937").text(`Total Transaksi Terealisasi: ${transactions.length}`);
+    doc.text(`Total Realisasi Pengeluaran: ${formatRupiah(totalAmount)}`);
+    doc.text(`Rata-rata Nominal Transaksi: ${formatRupiah(stats.avgAmount || 0)}`);
     doc.moveDown(1.5);
 
     // Draw Table Headers
     const startY = doc.y;
-    doc.fontSize(10).fillColor("#111827").font("Helvetica-Bold");
-    doc.text("Kode", 40, startY, { width: 90 });
-    doc.text("Pemohon", 130, startY, { width: 100 });
-    doc.text("Tipe", 230, startY, { width: 90 });
-    doc.text("Kategori", 320, startY, { width: 90 });
-    doc.text("Nominal", 410, startY, { width: 100 });
+    doc.fontSize(9).fillColor("#111827").font("Helvetica-Bold");
+    doc.text("Kode", 40, startY, { width: 85 });
+    doc.text("Pemohon", 125, startY, { width: 95 });
+    doc.text("Tipe", 220, startY, { width: 75 });
+    doc.text("Kategori", 295, startY, { width: 85 });
+    doc.text("Nominal", 380, startY, { width: 90 });
+    doc.text("Tanggal", 470, startY, { width: 80 });
     
-    doc.moveTo(40, startY + 15).lineTo(550, startY + 15).strokeColor("#e5e7eb").stroke();
+    doc.moveTo(40, startY + 12).lineTo(550, startY + 12).strokeColor("#e5e7eb").stroke();
     
     // Draw Rows
-    let currentY = startY + 22;
-    doc.font("Helvetica");
+    let currentY = startY + 18;
+    doc.font("Helvetica").fontSize(8.5);
 
-    requests.forEach((req, idx) => {
+    transactions.forEach((tx) => {
       // Avoid printing off-page
-      if (currentY > 700) {
+      if (currentY > 720) {
         doc.addPage();
         currentY = 40;
       }
 
-      doc.text(req.code, 40, currentY, { width: 90 });
-      doc.text(req.requester?.name || "-", 130, currentY, { width: 100 });
-      doc.text(req.type, 230, currentY, { width: 90 });
-      doc.text(req.category?.name || "-", 320, currentY, { width: 90 });
-      doc.text(formatRupiah(Number(req.amount)), 410, currentY, { width: 100 });
+      doc.text(tx.code, 40, currentY, { width: 85 });
+      doc.text(tx.requesterName, 125, currentY, { width: 95 });
+      doc.text(tx.type === "PETTY_CASH" ? "Kas Kecil" : tx.type, 220, currentY, { width: 75 });
+      doc.text(tx.categoryName, 295, currentY, { width: 85 });
+      doc.text(formatRupiah(Number(tx.amount)), 380, currentY, { width: 90 });
+      doc.text(new Date(tx.date).toLocaleDateString("id-ID"), 470, currentY, { width: 80 });
 
-      currentY += 20;
+      currentY += 18;
     });
 
     doc.end();
   });
 }
 
-export async function generateDocxReport(filters = {}) {
-  const requests = await getExportData(filters);
-  const totalAmount = requests.reduce((sum, r) => sum + Number(r.amount), 0);
+export async function generateDocxReport(data, filters = {}) {
+  const transactions = data.allTransactions || [];
+  const totalAmount = data.stats?.totalRealizedAmount || 0;
 
   const tableRows = [
     new TableRow({
       children: [
         new TableCell({ children: [new Paragraph({ text: "Kode", style: "HeaderStyle" })], width: { size: 15, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ text: "Pemohon", style: "HeaderStyle" })], width: { size: 25, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ text: "Tipe", style: "HeaderStyle" })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ text: "Pemohon", style: "HeaderStyle" })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ text: "Tipe", style: "HeaderStyle" })], width: { size: 15, type: WidthType.PERCENTAGE } }),
         new TableCell({ children: [new Paragraph({ text: "Kategori", style: "HeaderStyle" })], width: { size: 20, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ text: "Nominal", style: "HeaderStyle" })], width: { size: 20, type: WidthType.PERCENTAGE } })
+        new TableCell({ children: [new Paragraph({ text: "Nominal", style: "HeaderStyle" })], width: { size: 18, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ text: "Tanggal", style: "HeaderStyle" })], width: { size: 12, type: WidthType.PERCENTAGE } })
       ]
     })
   ];
 
-  requests.forEach((req) => {
+  transactions.forEach((tx) => {
     tableRows.push(
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph(req.code)] }),
-          new TableCell({ children: [new Paragraph(req.requester?.name || "-")] }),
-          new TableCell({ children: [new Paragraph(req.type)] }),
-          new TableCell({ children: [new Paragraph(req.category?.name || "-")] }),
-          new TableCell({ children: [new Paragraph(formatRupiah(Number(req.amount)))] })
+          new TableCell({ children: [new Paragraph(tx.code)] }),
+          new TableCell({ children: [new Paragraph(tx.requesterName)] }),
+          new TableCell({ children: [new Paragraph(tx.type === "PETTY_CASH" ? "Kas Kecil" : tx.type)] }),
+          new TableCell({ children: [new Paragraph(tx.categoryName)] }),
+          new TableCell({ children: [new Paragraph(formatRupiah(Number(tx.amount)))] }),
+          new TableCell({ children: [new Paragraph(new Date(tx.date).toLocaleDateString("id-ID"))] })
         ]
       })
     );
@@ -206,7 +212,7 @@ export async function generateDocxReport(filters = {}) {
               new TextRun({
                 text: "FINFLOW PRO - LAPORAN TRANSAKSI KEUANGAN",
                 bold: true,
-                size: 28,
+                size: 24,
                 color: "4F46E5"
               })
             ]
@@ -214,18 +220,28 @@ export async function generateDocxReport(filters = {}) {
           new Paragraph({
             children: [
               new TextRun({
-                text: `Tanggal Cetak: ${new Date().toLocaleDateString("id-ID")}`,
+                text: `${getPeriodLabel(filters)}`,
+                bold: true,
+                size: 18,
+                color: "6B7280"
+              })
+            ]
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Tanggal Cetak: ${new Date().toLocaleDateString("id-ID")} ${new Date().toLocaleTimeString("id-ID")}`,
                 italics: true,
-                size: 18
+                size: 14
               })
             ]
           }),
           new Paragraph({ text: "\n" }),
           new Paragraph({
             children: [
-              new TextRun({ text: `Total Transaksi: ${requests.length}`, bold: true }),
+              new TextRun({ text: `Total Transaksi: ${transactions.length}`, bold: true }),
               new TextRun({ text: "\n" }),
-              new TextRun({ text: `Total Nominal Pengeluaran: ${formatRupiah(totalAmount)}`, bold: true })
+              new TextRun({ text: `Total Realisasi Pengeluaran: ${formatRupiah(totalAmount)}`, bold: true })
             ]
           }),
           new Paragraph({ text: "\n" }),
