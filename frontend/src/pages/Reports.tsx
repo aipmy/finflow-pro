@@ -1,4 +1,4 @@
-// Cache-buster: 2026-06-26T03:10:00
+// Cache-buster: 2026-06-26T03:20:00
 import { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet, FileText, FileType, Loader2, Award, TrendingUp, DollarSign, BarChart2,
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
+import { StatusBadge } from "@/components/StatusBadge";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--info))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--destructive))", "#8b5cf6", "#ec4899", "#f59e0b", "#06b6d4", "#84cc16"];
 const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -46,7 +47,7 @@ const tooltipLabelStyle = {
 };
 
 export default function Reports() {
-  console.log("Finflow Reports v1.0.5-cb");
+  console.log("Finflow Reports v1.0.6-cb");
   const [loading, setLoading] = useState(true);
   const currentYearStr = new Date().getFullYear().toString();
   const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
@@ -704,9 +705,7 @@ function UserDetailPanel({ data, onBack, loading, selectedYear }: { data: any; o
                       <td className="p-3 text-muted-foreground">{tx.categoryName}</td>
                       <td className="p-3 text-right font-mono font-semibold">{formatRupiah(tx.amount)}</td>
                       <td className="p-3">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                          tx.status === "CLOSED" || tx.status === "REALIZED" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                        }`}>{tx.status}</span>
+                        <StatusBadge status={tx.status} />
                       </td>
                       <td className="p-3 text-muted-foreground">{new Date(tx.date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</td>
                     </tr>

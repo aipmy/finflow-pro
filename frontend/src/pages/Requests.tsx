@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatRupiah, formatDate } from "@/utils/format";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const typeLabels: Record<string, string> = {
   PEMBELIAN: "Pembelian",
@@ -88,6 +89,14 @@ export default function Requests() {
     });
   }, [requests, q, status, cat, dept, sortBy, sortOrder]);
 
+  const activeList = useMemo(() => {
+    return list.filter(r => r.status !== "CLOSED" && r.status !== "REJECTED");
+  }, [list]);
+
+  const historyList = useMemo(() => {
+    return list.filter(r => r.status === "CLOSED" || r.status === "REJECTED");
+  }, [list]);
+
   const statuses = ["DRAFT", "SUBMITTED", "NEED_REVISION", "APPROVED_BY_SUPERVISOR", "APPROVED_BY_FINANCE", "REJECTED", "PURCHASED", "REALIZED", "CLOSED"];
 
   const handleHeaderClick = (field: "title" | "createdAt") => {
@@ -97,6 +106,86 @@ export default function Requests() {
       setSortBy(field);
       setSortOrder("asc");
     }
+  };
+
+  const renderTable = (items: any[], emptyLabel: string) => {
+    return (
+      <Card className="shadow-elegant hidden md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="text-left p-3 font-medium">Kode</th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/80 select-none transition-colors" onClick={() => handleHeaderClick("title")}>
+                  <div className="flex items-center gap-1.5">
+                    Judul
+                    <ArrowUpDown className={`h-3 w-3 ${sortBy === "title" ? "text-primary" : "text-muted-foreground/50"}`} />
+                  </div>
+                </th>
+                <th className="text-left p-3 font-medium">Tipe</th>
+                <th className="text-left p-3 font-medium">Pemohon</th>
+                <th className="text-left p-3 font-medium">Site</th>
+                <th className="text-right p-3 font-medium">Jumlah</th>
+                <th className="text-left p-3 font-medium">Status</th>
+                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/80 select-none transition-colors" onClick={() => handleHeaderClick("createdAt")}>
+                  <div className="flex items-center gap-1.5">
+                    Tanggal
+                    <ArrowUpDown className={`h-3 w-3 ${sortBy === "createdAt" ? "text-primary" : "text-muted-foreground/50"}`} />
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(r => {
+                const u = r.requester;
+                const s = r.site;
+                return (
+                  <tr key={r.id} className="border-t border-border hover:bg-muted/30">
+                    <td className="p-3"><Link to={`/requests/${r.id}`} className="font-mono text-xs text-primary hover:underline">{r.code}</Link></td>
+                    <td className="p-3 font-medium max-w-xs truncate">{r.title}</td>
+                    <td className="p-3 text-xs text-muted-foreground">{typeLabels[r.type]}</td>
+                    <td className="p-3 text-xs">{u?.name}</td>
+                    <td className="p-3 text-xs">{s?.name}</td>
+                    <td className="p-3 text-right font-semibold">{formatRupiah(r.amount)}</td>
+                    <td className="p-3"><StatusBadge status={r.status} /></td>
+                    <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(r.createdAt)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {items.length === 0 && <div className="p-12 text-center text-sm text-muted-foreground">{emptyLabel}</div>}
+        </div>
+      </Card>
+    );
+  };
+
+  const renderMobileCards = (items: any[], emptyLabel: string) => {
+    return (
+      <div className="md:hidden space-y-2">
+        {items.map(r => {
+          const u = r.requester;
+          return (
+            <Link key={r.id} to={`/requests/${r.id}`} className="block">
+              <Card className="shadow-sm">
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <span className="text-[10px] font-mono text-muted-foreground">{r.code}</span>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  <div className="font-medium text-sm mb-1 line-clamp-2">{r.title}</div>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                    <div className="text-[11px] text-muted-foreground">{u?.name} • {formatDate(r.createdAt)}</div>
+                    <div className="text-sm font-semibold">{formatRupiah(r.amount)}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+        {items.length === 0 && <div className="p-12 text-center text-sm text-muted-foreground">{emptyLabel}</div>}
+      </div>
+    );
   };
 
   if (loading) {
@@ -168,78 +257,36 @@ export default function Requests() {
         </CardContent>
       </Card>
 
-      {/* Desktop table */}
-      <Card className="shadow-elegant hidden md:block">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="text-left p-3 font-medium">Kode</th>
-                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/80 select-none transition-colors" onClick={() => handleHeaderClick("title")}>
-                  <div className="flex items-center gap-1.5">
-                    Judul
-                    <ArrowUpDown className={`h-3 w-3 ${sortBy === "title" ? "text-primary" : "text-muted-foreground/50"}`} />
-                  </div>
-                </th>
-                <th className="text-left p-3 font-medium">Tipe</th>
-                <th className="text-left p-3 font-medium">Pemohon</th>
-                <th className="text-left p-3 font-medium">Site</th>
-                <th className="text-right p-3 font-medium">Jumlah</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-left p-3 font-medium cursor-pointer hover:bg-muted/80 select-none transition-colors" onClick={() => handleHeaderClick("createdAt")}>
-                  <div className="flex items-center gap-1.5">
-                    Tanggal
-                    <ArrowUpDown className={`h-3 w-3 ${sortBy === "createdAt" ? "text-primary" : "text-muted-foreground/50"}`} />
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map(r => {
-                const u = r.requester;
-                const s = r.site;
-                return (
-                  <tr key={r.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="p-3"><Link to={`/requests/${r.id}`} className="font-mono text-xs text-primary hover:underline">{r.code}</Link></td>
-                    <td className="p-3 font-medium max-w-xs truncate">{r.title}</td>
-                    <td className="p-3 text-xs text-muted-foreground">{typeLabels[r.type]}</td>
-                    <td className="p-3 text-xs">{u?.name}</td>
-                    <td className="p-3 text-xs">{s?.name}</td>
-                    <td className="p-3 text-right font-semibold">{formatRupiah(r.amount)}</td>
-                    <td className="p-3"><StatusBadge status={r.status} /></td>
-                    <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(r.createdAt)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {list.length === 0 && <div className="p-12 text-center text-sm text-muted-foreground">Tidak ada pengajuan ditemukan</div>}
-        </div>
-      </Card>
+      <Tabs defaultValue="queue" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="queue" className="relative">
+            Antrian Pengajuan
+            {activeList.length > 0 && (
+              <span className="ml-2 bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {activeList.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            Riwayat Pengajuan
+            {historyList.length > 0 && (
+              <span className="ml-2 bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                {historyList.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Mobile cards */}
-      <div className="md:hidden space-y-2">
-        {list.map(r => {
-          const u = r.requester;
-          return (
-            <Link key={r.id} to={`/requests/${r.id}`} className="block">
-              <Card className="shadow-sm">
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-mono text-muted-foreground">{r.code}</span>
-                    <StatusBadge status={r.status} />
-                  </div>
-                  <div className="font-medium text-sm mb-1 line-clamp-2">{r.title}</div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                    <div className="text-[11px] text-muted-foreground">{u?.name} • {formatDate(r.createdAt)}</div>
-                    <div className="text-sm font-semibold">{formatRupiah(r.amount)}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+        <TabsContent value="queue" className="space-y-4 outline-none">
+          {renderTable(activeList, "Tidak ada pengajuan aktif dalam antrian")}
+          {renderMobileCards(activeList, "Tidak ada pengajuan aktif dalam antrian")}
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4 outline-none">
+          {renderTable(historyList, "Tidak ada riwayat pengajuan")}
+          {renderMobileCards(historyList, "Tidak ada riwayat pengajuan")}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
