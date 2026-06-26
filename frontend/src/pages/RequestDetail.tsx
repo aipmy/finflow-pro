@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
+import { ImagePreviewModal } from "@/components/ImagePreviewModal";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -69,6 +70,9 @@ export default function RequestDetail() {
  
   // Image preview state
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewDetails, setPreviewDetails] = useState<{label: string, value: string}[]>([]);
 
   // Item sorting states
   const [itemSortBy, setItemSortBy] = useState<"name" | "createdAt">("name");
@@ -586,11 +590,29 @@ export default function RequestDetail() {
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2 mt-1"><Wallet className="h-4 w-4 text-success" />Realisasi Finance</CardTitle>
                 {r.financeRealization?.receiptUrl && (
-                  <Button variant="outline" size="sm" asChild className="h-8 bg-white/50 hover:bg-white/80 border-success/20">
-                    <a href={r.financeRealization.receiptUrl} target="_blank" rel="noopener noreferrer">
-                      <FileText className="h-3.5 w-3.5 mr-1.5 text-success" />
-                      Lihat Bukti
-                    </a>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 border-success/30 text-success hover:bg-success/10 bg-background"
+                    onClick={() => {
+                      const url = r.financeRealization?.receiptUrl;
+                      if (url?.toLowerCase().endsWith(".pdf")) {
+                        window.open(url, "_blank");
+                      } else if (url) {
+                        setPreviewUrl(url);
+                        setPreviewDetails([
+                          { label: "Kode Transaksi", value: r.code },
+                          { label: "Pengajuan", value: r.title },
+                          { label: "Tanggal Realisasi", value: formatDate(r.financeRealization?.createdAt || new Date()) },
+                          { label: "Diminta", value: formatRupiah(Number(r.amount)) },
+                          { label: "Terealisasi", value: formatRupiah(Number(r.financeRealization?.realizedAmount || 0)) }
+                        ]);
+                        setIsPreviewOpen(true);
+                      }
+                    }}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    Lihat Bukti
                   </Button>
                 )}
               </CardHeader>
@@ -1032,6 +1054,13 @@ export default function RequestDetail() {
           </div>
         </div>
       )}
+      <ImagePreviewModal 
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        imageUrl={previewUrl}
+        title="Bukti Realisasi"
+        details={previewDetails}
+      />
     </div>
   );
 }
