@@ -4,13 +4,14 @@ export const financeController = {
   realize: async (req, res, next) => {
     try {
       const { requestId } = req.params;
-      const { realizedAmount, receiptUrl, notes } = req.body;
+      const { realizedAmount, receiptUrl, receiptSize, notes } = req.body;
       const ipAddress = req.ip || req.headers["x-forwarded-for"] || "";
 
       const result = await financeService.realize({
         requestId,
         realizedAmount,
         receiptUrl,
+        receiptSize,
         notes,
         user: req.user,
         ipAddress

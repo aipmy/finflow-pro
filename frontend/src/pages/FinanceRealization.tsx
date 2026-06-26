@@ -13,6 +13,7 @@ import {
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatRupiah, formatDate } from "@/utils/format";
 import { apiClient } from "@/services/apiClient";
+import { compressImage } from "@/utils/compression";
 import { toast } from "sonner";
 import { ImagePreviewModal } from "@/components/ImagePreviewModal";
 
@@ -76,12 +77,15 @@ export default function FinanceRealization() {
     setIsSubmitting(true);
     try {
       let receiptUrl = "";
+      let receiptSize = "";
       if (file) {
-        const uploadRes = await apiClient.upload(file);
+        const compressedFile = await compressImage(file);
+        const uploadRes = await apiClient.upload(compressedFile);
         receiptUrl = uploadRes.file.url;
+        receiptSize = uploadRes.file.size;
       }
 
-      await apiClient.finance.realize(id, amountNum, receiptUrl, notes);
+      await apiClient.finance.realize(id, amountNum, receiptUrl, receiptSize, notes);
       toast.success(`Realisasi ${code} berhasil disimpan`);
       setActual("");
       setNotes("");
@@ -239,6 +243,7 @@ export default function FinanceRealization() {
                                 >
                                   <Paperclip className="h-3.5 w-3.5" />
                                   <span className="truncate max-w-[200px]">{att.name}</span>
+                                  {att.size && <span className="text-[10px] text-muted-foreground ml-1">({att.size})</span>}
                                 </a>
                               ))}
                             </div>

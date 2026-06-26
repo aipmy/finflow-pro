@@ -305,13 +305,13 @@ export const apiClient = {
   },
 
   finance: {
-    realize: async (requestId: string, realizedAmount: number, receiptUrl?: string, notes?: string) => {
+    realize: async (requestId: string, realizedAmount: number, receiptUrl?: string, receiptSize?: string, notes?: string) => {
       return request(`/finance/realizations/${requestId}`, {
         method: "POST",
-        body: JSON.stringify({ realizedAmount, receiptUrl, notes })
+        body: JSON.stringify({ realizedAmount, receiptUrl, receiptSize, notes })
       });
     },
-    submitProof: async (requestId: string, proofs: { fileUrl: string; fileName: string; description?: string; requestItemId?: string; isRefundProof?: boolean }[], actualAmount?: number) => {
+    submitProof: async (requestId: string, proofs: { fileUrl: string; fileName: string; fileSize?: string; description?: string; requestItemId?: string; isRefundProof?: boolean }[], actualAmount?: number) => {
       return request(`/finance/realizations/${requestId}/proof`, {
         method: "POST",
         body: JSON.stringify({ proofs, actualAmount })

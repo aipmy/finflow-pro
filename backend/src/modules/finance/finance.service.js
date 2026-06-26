@@ -2,7 +2,7 @@ import { requestRepository } from "../requests/request.repository.js";
 import { financeRepository } from "./finance.repository.js";
 
 export const financeService = {
-  realize: async ({ requestId, realizedAmount, receiptUrl, notes, user, ipAddress }) => {
+  realize: async ({ requestId, realizedAmount, receiptUrl, receiptSize, notes, user, ipAddress }) => {
     // Only finance, admin, or supervisor can realize requests
     if (user.role !== "finance" && user.role !== "admin" && user.role !== "supervisor") {
       throw { status: 403, message: "Forbidden: Only Finance, Admin, or Supervisor can process realizations" };
@@ -26,6 +26,7 @@ export const financeService = {
       requestId,
       realizedAmount,
       receiptUrl,
+      receiptSize,
       notes,
       userId: user.userId,
       ipAddress

@@ -1,7 +1,7 @@
 import { prisma } from "../../core/database.js";
 
 export const financeRepository = {
-  createRealization: async ({ requestId, realizedAmount, receiptUrl, notes, userId, ipAddress }) => {
+  createRealization: async ({ requestId, realizedAmount, receiptUrl, receiptSize, notes, userId, ipAddress }) => {
     return prisma.$transaction(async (tx) => {
       // 1. Get the request details to check type and code
       const request = await tx.request.findUnique({
@@ -15,6 +15,7 @@ export const financeRepository = {
           requestId,
           realizedAmount,
           receiptUrl,
+          receiptSize,
           status: "PAID",
           notes
         }
@@ -188,6 +189,7 @@ export const financeRepository = {
             requestId,
             fileUrl: proof.fileUrl,
             fileName: proof.fileName,
+            fileSize: proof.fileSize || null,
             description: proof.description || null,
             uploadedById: userId,
             requestItemId: proof.requestItemId || null,

@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { formatRupiah, formatDateTime, formatDate } from "@/utils/format";
 import { useAuth, can } from "@/stores/authStore";
 import { apiClient } from "@/services/apiClient";
+import { compressImage } from "@/utils/compression";
 
 const typeLabels: Record<string, string> = {
   PEMBELIAN: "Pembelian Barang/Sparepart",
@@ -302,10 +303,12 @@ export default function RequestDetail() {
       for (const it of itemRealizations) {
         if (it.files.length > 0) {
           for (const pf of it.files) {
-            const uploaded = await apiClient.upload(pf.file);
+            const compressedFile = await compressImage(pf.file);
+            const uploaded = await apiClient.upload(compressedFile);
             uploadedProofs.push({
               fileUrl: uploaded.file.url,
               fileName: uploaded.file.name,
+              fileSize: uploaded.file.size,
               description: it.description || undefined,
               requestItemId: it.id
             });
@@ -322,10 +325,12 @@ export default function RequestDetail() {
 
       // 2. Upload refund proofs
       for (const rf of refundFiles) {
-        const uploaded = await apiClient.upload(rf.file);
+        const compressedFile = await compressImage(rf.file);
+        const uploaded = await apiClient.upload(compressedFile);
         uploadedProofs.push({
           fileUrl: uploaded.file.url,
           fileName: uploaded.file.name,
+          fileSize: uploaded.file.size,
           description: "Bukti Transfer Pengembalian Selisih Dana",
           isRefundProof: true
         });
@@ -684,6 +689,9 @@ export default function RequestDetail() {
                             )}
                             <div className="p-2 border-t border-border">
                               <div className="text-[11px] font-medium truncate">{p.fileName}</div>
+                              {p.fileSize && (
+                                <div className="text-[10px] text-muted-foreground">{p.fileSize}</div>
+                              )}
                               {p.requestItem && (
                                 <div className="text-[10px] text-primary font-semibold mt-0.5 bg-primary/10 px-1.5 py-0.5 rounded inline-block">Item: {p.requestItem.name}</div>
                               )}
