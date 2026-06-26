@@ -591,9 +591,9 @@ export default function RequestDetail() {
                 <CardTitle className="text-base flex items-center gap-2 mt-1"><Wallet className="h-4 w-4 text-success" />Realisasi Finance</CardTitle>
                 {r.financeRealization?.receiptUrl && (
                   <Button 
-                    variant="outline" 
+                    variant="ghost" 
                     size="sm" 
-                    className="h-8 border-success/30 text-success hover:bg-success/10 bg-background"
+                    className="h-8 border border-success/30 text-success bg-success/5 hover:bg-success/20 hover:text-success transition-colors"
                     onClick={() => {
                       const url = r.financeRealization?.receiptUrl;
                       if (url?.toLowerCase().endsWith(".pdf")) {
