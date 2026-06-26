@@ -1,6 +1,6 @@
-import cron from "node-cron";
 import { getUsageData } from "./scraper.js";
 import { prisma } from "../../core/database.js";
+import { getScraperConfig, setSyncStatus } from "./simcard.config.js";
 
 // Helper to get Indonesian Month Year
 export const getIndonesianMonthYear = () => {
@@ -14,12 +14,24 @@ export const getIndonesianMonthYear = () => {
 
 // Main function to sync scraper data into database
 export async function syncSimcardsToDatabase() {
+  const config = getScraperConfig();
+
+  // Prevent concurrent syncs
+  if (config.isSyncing) {
+    console.log("[SIMCARD SCHEDULER] Sync already in progress. Skipping.");
+    return { success: false, skipped: true, reason: "already_syncing" };
+  }
+
+  setSyncStatus({ isSyncing: true });
+  const startTime = Date.now();
+
   console.log("[SIMCARD SCHEDULER] Starting SIM Card usage synchronization...");
   try {
     const rawData = await getUsageData("335", null);
     console.log(`[SIMCARD SCHEDULER] Scraper retrieved ${rawData.length} simcards.`);
 
     const currentPeriode = getIndonesianMonthYear();
+    const allSites = await prisma.site.findMany();
 
     for (const card of rawData) {
       if (card.error) {
@@ -27,16 +39,15 @@ export async function syncSimcardsToDatabase() {
         continue;
       }
 
-      // 1. Try to find matching Site by name (lokasi)
+      // 1. Try to find matching Site by looking for existing site names within the location label
       let siteId = null;
       if (card.lokasi) {
-        const matchingSite = await prisma.site.findFirst({
-          where: {
-            name: {
-              contains: card.lokasi
-            }
-          }
+        const matchingSite = allSites.find(s => {
+          const sName = s.name.toLowerCase();
+          const targetName = card.lokasi.toLowerCase();
+          return targetName.includes(sName);
         });
+
         if (matchingSite) {
           siteId = matchingSite.id;
         }
@@ -124,44 +135,87 @@ export async function syncSimcardsToDatabase() {
       });
     }
 
-    console.log("[SIMCARD SCHEDULER] SIM Card usage synchronization completed successfully.");
-    return { success: true, count: rawData.length };
+    const durationMs = Date.now() - startTime;
+    console.log(`[SIMCARD SCHEDULER] Sync completed successfully in ${(durationMs / 1000).toFixed(1)}s.`);
+
+    setSyncStatus({
+      isSyncing: false,
+      lastSyncAt: new Date(),
+      lastSyncResult: { success: true, count: rawData.length, durationMs }
+    });
+
+    return { success: true, count: rawData.length, durationMs };
   } catch (error) {
+    const durationMs = Date.now() - startTime;
     console.error("[SIMCARD SCHEDULER] Synchronization failed:", error);
+
+    setSyncStatus({
+      isSyncing: false,
+      lastSyncAt: new Date(),
+      lastSyncResult: { success: false, error: error.message, durationMs }
+    });
+
     throw error;
   }
 }
 
-// Initialize cron scheduler (runs every day at 01:00 AM)
-export function initSimcardScheduler() {
-  cron.schedule("0 1 * * *", () => {
-    syncSimcardsToDatabase().catch(err => {
-      console.error("[SIMCARD CRON] Error executing sync:", err);
-    });
-  });
-  console.log("[SIMCARD SCHEDULER] Registered SIM card sync cron job (daily at 01:00 AM)");
+// Scheduler management
+let schedulerInterval = null;
 
-  // Run sync on startup in background IF it has not been synced today
+function runScheduledSync() {
+  const config = getScraperConfig();
+
+  if (!config.enabled) {
+    console.log("[SIMCARD SCHEDULER] Auto-scraping is disabled. Skipping scheduled sync.");
+    return;
+  }
+
+  syncSimcardsToDatabase().catch(err => {
+    console.error("[SIMCARD SCHEDULER] Error in scheduled sync:", err);
+  });
+}
+
+export function startScheduler() {
+  const config = getScraperConfig();
+  const intervalMs = config.intervalMinutes * 60 * 1000;
+
+  if (schedulerInterval) {
+    clearInterval(schedulerInterval);
+  }
+
+  schedulerInterval = setInterval(runScheduledSync, intervalMs);
+  console.log(`[SIMCARD SCHEDULER] Auto-scraping started (every ${config.intervalMinutes} min, enabled=${config.enabled}).`);
+}
+
+export function restartScheduler() {
+  console.log("[SIMCARD SCHEDULER] Restarting scheduler with new config...");
+  startScheduler();
+}
+
+// Initialize scheduler
+export function initSimcardScheduler() {
+  startScheduler();
+
+  // Run sync on startup in background IF it has not been synced recently
   const runStartupSync = async () => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+
       const lastSync = await prisma.simcardUsage.findFirst({
         where: {
           scrapedAt: {
-            gte: today
+            gte: thirtyMinAgo
           }
         }
       });
 
       if (!lastSync) {
-        console.log("[SIMCARD SCHEDULER] No sync detected for today. Running automatic startup sync in background...");
+        console.log("[SIMCARD SCHEDULER] No recent sync detected. Running automatic startup sync...");
         syncSimcardsToDatabase().catch(err => {
-          console.error("[SIMCARD SCHEDULER] Error in automatic startup sync:", err);
+          console.error("[SIMCARD SCHEDULER] Error in startup sync:", err);
         });
       } else {
-        console.log("[SIMCARD SCHEDULER] SIM cards already synced today. Skipping startup sync.");
+        console.log("[SIMCARD SCHEDULER] Recent sync found. Skipping startup sync.");
       }
     } catch (err) {
       console.error("[SIMCARD SCHEDULER] Failed to check last sync on startup:", err);

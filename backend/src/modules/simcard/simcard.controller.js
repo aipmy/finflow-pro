@@ -1,5 +1,6 @@
 import { prisma } from "../../core/database.js";
-import { syncSimcardsToDatabase, getIndonesianMonthYear } from "./simcard.scheduler.js";
+import { syncSimcardsToDatabase, getIndonesianMonthYear, restartScheduler } from "./simcard.scheduler.js";
+import { getScraperConfig, setScraperConfig } from "./simcard.config.js";
 
 // GET /api/simcard/usage
 export async function getSimcardUsage(req, res, next) {
@@ -89,7 +90,208 @@ export async function triggerManualSync(req, res, next) {
     res.json({
       success: true,
       message: "Sinkronisasi database kartu SIM berhasil dilakukan.",
-      count: result.count
+      count: result.count,
+      durationMs: result.durationMs
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /api/simcard/usage/:msisdn/history
+export async function getSimcardHistory(req, res, next) {
+  try {
+    const { msisdn } = req.params;
+    const simcard = await prisma.simcard.findUnique({
+      where: { msisdn },
+      include: {
+        usages: {
+          orderBy: {
+            scrapedAt: "asc"
+          }
+        }
+      }
+    });
+
+    if (!simcard) {
+      return res.status(404).json({ error: { message: "SIM card not found" } });
+    }
+
+    const history = simcard.usages.map(u => ({
+      periode: u.periode,
+      kuotaUsed: Number(u.kuotaUsed),
+      kuotaTotal: Number(u.kuotaTotal),
+      voiceUsed: u.voiceUsed,
+      smsUsed: u.smsUsed,
+      scrapedAt: u.scrapedAt
+    }));
+
+    history.sort((a, b) => new Date(a.scrapedAt).getTime() - new Date(b.scrapedAt).getTime());
+
+    res.json({
+      success: true,
+      data: history
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /api/simcard/scraper-status
+export async function getScraperStatus(req, res, next) {
+  try {
+    const config = getScraperConfig();
+    res.json({
+      success: true,
+      data: config
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// POST /api/simcard/scraper-config
+export async function updateScraperConfig(req, res, next) {
+  try {
+    const { enabled, intervalMinutes } = req.body;
+
+    // Validate intervalMinutes
+    if (intervalMinutes !== undefined && (typeof intervalMinutes !== "number" || intervalMinutes < 1 || intervalMinutes > 1440)) {
+      return res.status(400).json({
+        success: false,
+        error: { message: "intervalMinutes harus antara 1 dan 1440 (24 jam)" }
+      });
+    }
+
+    setScraperConfig({ enabled, intervalMinutes });
+    restartScheduler();
+
+    const newConfig = getScraperConfig();
+    console.log(`[SIMCARD CONTROLLER] Scraper config updated: enabled=${newConfig.enabled}, interval=${newConfig.intervalMinutes}min`);
+
+    res.json({
+      success: true,
+      message: "Konfigurasi scraper berhasil diperbarui.",
+      data: newConfig
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /api/simcard/overview
+export async function getSimcardOverview(req, res, next) {
+  try {
+    const currentPeriode = getIndonesianMonthYear();
+
+    // Get all simcards with current usage
+    const simcards = await prisma.simcard.findMany({
+      include: {
+        site: true,
+        usages: {
+          where: { periode: currentPeriode }
+        }
+      }
+    });
+
+    // Summary stats
+    let totalModem = simcards.length;
+    let totalUsedGB = 0;
+    let totalAllocatedGB = 0;
+    let criticalCount = 0;
+    let warningCount = 0;
+    let safeCount = 0;
+
+    // Per-group usage
+    const grupMap = {};
+    // Top usage cards
+    const cardUsages = [];
+
+    for (const card of simcards) {
+      const usage = card.usages && card.usages[0] ? card.usages[0] : null;
+      const used = usage ? Number(usage.kuotaUsed) : 0;
+      const total = usage ? Number(usage.kuotaTotal) : 10;
+      const percent = total > 0 ? (used / total) * 100 : 0;
+
+      totalUsedGB += used;
+      totalAllocatedGB += total;
+
+      if (percent >= 90) criticalCount++;
+      else if (percent >= 70) warningCount++;
+      else safeCount++;
+
+      // Group aggregation
+      const grup = card.grup || "Lainnya";
+      if (!grupMap[grup]) {
+        grupMap[grup] = { grup, totalUsed: 0, totalAllocated: 0, count: 0 };
+      }
+      grupMap[grup].totalUsed += used;
+      grupMap[grup].totalAllocated += total;
+      grupMap[grup].count += 1;
+
+      cardUsages.push({
+        msisdn: card.msisdn,
+        lokasi: card.label || "",
+        grup: card.grup || "",
+        site: card.site ? card.site.name : "",
+        used,
+        total,
+        percent
+      });
+    }
+
+    // Top 10 highest usage
+    const top10 = cardUsages
+      .sort((a, b) => b.used - a.used)
+      .slice(0, 10);
+
+    // Per-group breakdown
+    const perGrup = Object.values(grupMap).sort((a, b) => b.totalUsed - a.totalUsed);
+
+    // Monthly trends (all periods aggregated)
+    const allUsages = await prisma.simcardUsage.findMany({
+      select: {
+        periode: true,
+        kuotaUsed: true,
+        kuotaTotal: true,
+        scrapedAt: true
+      }
+    });
+
+    // Aggregate by periode
+    const periodeMap = {};
+    for (const u of allUsages) {
+      if (!periodeMap[u.periode]) {
+        periodeMap[u.periode] = { periode: u.periode, totalUsed: 0, totalAllocated: 0, count: 0, latestScrapedAt: u.scrapedAt };
+      }
+      periodeMap[u.periode].totalUsed += Number(u.kuotaUsed);
+      periodeMap[u.periode].totalAllocated += Number(u.kuotaTotal);
+      periodeMap[u.periode].count += 1;
+      if (new Date(u.scrapedAt) > new Date(periodeMap[u.periode].latestScrapedAt)) {
+        periodeMap[u.periode].latestScrapedAt = u.scrapedAt;
+      }
+    }
+
+    // Sort by scrapedAt
+    const monthlyTrend = Object.values(periodeMap).sort(
+      (a, b) => new Date(a.latestScrapedAt).getTime() - new Date(b.latestScrapedAt).getTime()
+    );
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalModem,
+          totalUsedGB: parseFloat(totalUsedGB.toFixed(2)),
+          totalAllocatedGB: parseFloat(totalAllocatedGB.toFixed(2)),
+          criticalCount,
+          warningCount,
+          safeCount
+        },
+        monthlyTrend,
+        perGrup,
+        top10
+      }
     });
   } catch (error) {
     next(error);

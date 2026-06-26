@@ -492,6 +492,21 @@ export const apiClient = {
       const queryString = params.toString() ? `?${params.toString()}` : "";
       return request(`/simcard/usage${queryString}`);
     },
+    getHistory: async (msisdn: string) => {
+      return request(`/simcard/usage/${msisdn}/history`);
+    },
+    getOverview: async () => {
+      return request("/simcard/overview");
+    },
+    getScraperStatus: async () => {
+      return request("/simcard/scraper-status");
+    },
+    updateScraperConfig: async (config: { enabled?: boolean; intervalMinutes?: number }) => {
+      return request("/simcard/scraper-config", {
+        method: "POST",
+        body: JSON.stringify(config)
+      });
+    },
     sync: async () => {
       return request("/simcard/sync", {
         method: "POST"

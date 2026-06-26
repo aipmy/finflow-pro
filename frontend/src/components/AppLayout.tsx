@@ -68,7 +68,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   });
   const dept = departments.find(d => d.id === user?.department)?.name;
 
-  const [badgeCounts, setBadgeCounts] = useState<{ approvals: number; lowStock: number; revisions: number }>({ approvals: 0, lowStock: 0, revisions: 0 });
+  const [badgeCounts, setBadgeCounts] = useState<{ approvals: number; lowStock: number; revisions: number; simcardAlerts: number }>({ approvals: 0, lowStock: 0, revisions: 0, simcardAlerts: 0 });
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -76,10 +76,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function fetchBadgeCountsAndNotifications() {
       try {
-        const [reqs, items, notifs] = await Promise.all([
+        const [reqs, items, notifs, simcardsRes] = await Promise.all([
           apiClient.requests.list().catch(() => []),
           apiClient.inventory.list().catch(() => []),
-          apiClient.notifications.list().catch(() => [])
+          apiClient.notifications.list().catch(() => []),
+          apiClient.simcard.getUsage().catch(() => ({ data: [] }))
         ]);
 
         const role = user?.role?.toLowerCase() || "";
@@ -105,7 +106,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           return true;
         }).length;
 
-        setBadgeCounts({ approvals, lowStock, revisions });
+        // Critical SIM card alerts count (kuotaPercent >= 90%)
+        const simcardAlerts = (simcardsRes?.data || []).filter((s: any) => s.kuotaPercent >= 90).length;
+
+        setBadgeCounts({ approvals, lowStock, revisions, simcardAlerts });
         setNotifications(notifs || []);
         setUnreadCount((notifs || []).filter((n: any) => !n.read).length);
       } catch (err) {
@@ -177,6 +181,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (to === "/approvals") return badgeCounts.approvals;
     if (to === "/inventory") return badgeCounts.lowStock;
     if (to === "/requests") return badgeCounts.revisions;
+    if (to === "/simcard-usage") return badgeCounts.simcardAlerts;
     return 0;
   };
 
