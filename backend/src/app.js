@@ -14,6 +14,7 @@ import usersRoutes from "./modules/users/users.routes.js";
 import auditRoutes from "./modules/audit/audit.routes.js";
 import recurringRoutes from "./modules/recurring/recurring.routes.js";
 import notificationsRoutes from "./modules/notifications/notifications.routes.js";
+import simcardRoutes from "./modules/simcard/simcard.routes.js";
 import { initScheduler } from "./core/scheduler.js";
 
 const app = express();
@@ -55,6 +56,7 @@ app.use("/api/users", usersRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/recurring-requests", recurringRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/simcard", simcardRoutes);
 
 // Initialize daily background scheduler
 initScheduler();

@@ -480,5 +480,15 @@ export const apiClient = {
       const queryString = params.toString() ? `?${params.toString()}` : "";
       return request(`/audit${queryString}`);
     }
+  },
+
+  simcard: {
+    getUsage: async (dashboardId?: string, msisdn?: string) => {
+      const params = new URLSearchParams();
+      if (dashboardId) params.append("dashboardId", dashboardId);
+      if (msisdn) params.append("msisdn", msisdn);
+      const queryString = params.toString() ? `?${params.toString()}` : "";
+      return request(`/simcard/usage${queryString}`);
+    }
   }
 };

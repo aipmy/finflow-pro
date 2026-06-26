@@ -18,6 +18,7 @@ import AuditTrail from "./pages/AuditTrail";
 import Users from "./pages/Users";
 import SettingsPage from "./pages/Settings";
 import RecurringRequests from "./pages/RecurringRequests";
+import SimcardUsage from "./pages/SimcardUsage";
 import NotFound from "./pages/NotFound";
 import { RequireAuth } from "./components/RequireAuth";
 
@@ -51,6 +52,7 @@ const App = () => {
             <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
             <Route path="/audit" element={<RequireAuth><AuditTrail /></RequireAuth>} />
             <Route path="/users" element={<RequireAuth><Users /></RequireAuth>} />
+            <Route path="/simcard-usage" element={<RequireAuth><SimcardUsage /></RequireAuth>} />
             <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

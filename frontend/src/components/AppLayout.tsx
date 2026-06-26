@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, CheckSquare, Package, Wallet,
   Coins, BarChart3, History, Users, Settings, LogOut, Menu, Plus, X,
-  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar, ChevronDown, RefreshCw, Bell
+  Eye, EyeOff, Check, Loader2, Lock, ChevronsLeft, ChevronsRight, Radar, ChevronDown, RefreshCw, Bell, Smartphone
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -47,6 +47,7 @@ const navGroups = [
     title: "Manajemen & Sistem",
     items: [
       { to: "/users", label: "Pengguna", icon: Users, perm: "users.manage" },
+      { to: "/simcard-usage", label: "Penggunaan Kartu", icon: Smartphone, perm: "" },
       { to: "/settings", label: "Pengaturan", icon: Settings, perm: "" },
     ]
   }

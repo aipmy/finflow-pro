@@ -297,7 +297,7 @@ export default function RequestDetail() {
 
     setUploadingProof(true);
     try {
-      const uploadedProofs: { fileUrl: string; fileName: string; description?: string; requestItemId?: string; isRefundProof?: boolean }[] = [];
+      const uploadedProofs: { fileUrl: string; fileName: string; fileSize?: string; description?: string; requestItemId?: string; isRefundProof?: boolean }[] = [];
 
       // 1. Upload item proofs
       for (const it of itemRealizations) {
@@ -605,13 +605,17 @@ export default function RequestDetail() {
                         window.open(url, "_blank");
                       } else if (url) {
                         setPreviewUrl(url);
-                        setPreviewDetails([
+                        const details = [
                           { label: "Kode Transaksi", value: r.code },
                           { label: "Pengajuan", value: r.title },
                           { label: "Tanggal Realisasi", value: formatDate(r.financeRealization?.createdAt || new Date()) },
                           { label: "Diminta", value: formatRupiah(Number(r.amount)) },
                           { label: "Terealisasi", value: formatRupiah(Number(r.financeRealization?.realizedAmount || 0)) }
-                        ]);
+                        ];
+                        if (r.financeRealization?.receiptSize) {
+                          details.push({ label: "Ukuran File", value: r.financeRealization.receiptSize });
+                        }
+                        setPreviewDetails(details);
                         setIsPreviewOpen(true);
                       }
                     }}
