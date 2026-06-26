@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { recurringRepository } from "../modules/recurring/recurring.repository.js";
 import { requestRepository } from "../modules/requests/request.repository.js";
 import { prisma } from "./database.js";
+import { initSimcardScheduler } from "../modules/simcard/simcard.scheduler.js";
 
 export const initScheduler = () => {
   // Run every day at 00:01 AM
@@ -13,6 +14,9 @@ export const initScheduler = () => {
       console.error("[SCHEDULER] Error generating recurring requests:", err);
     }
   });
+
+  // Inisialisasi scheduler sinkronisasi kartu SIM
+  initSimcardScheduler();
 
   console.log("[SCHEDULER] Scheduler initialized.");
 };

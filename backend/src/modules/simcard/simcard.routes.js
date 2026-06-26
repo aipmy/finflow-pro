@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSimcardUsage } from "./simcard.controller.js";
+import { getSimcardUsage, triggerManualSync } from "./simcard.controller.js";
 import { requireAuth } from "../../middlewares/authMiddleware.js";
 
 const router = Router();
@@ -8,5 +8,6 @@ const router = Router();
 router.use(requireAuth);
 
 router.get("/usage", getSimcardUsage);
+router.post("/sync", triggerManualSync);
 
 export default router;

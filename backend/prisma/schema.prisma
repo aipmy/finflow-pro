@@ -60,6 +60,7 @@ model Site {
   requests        Request[]
   items           Item[]
   inventoryStocks InventoryStock[]
+  simcards        Simcard[]
 
   @@map("sites")
 }
@@ -381,5 +382,39 @@ model RecurringRequestItem {
   recurringRequest   RecurringRequest @relation(fields: [recurringRequestId], references: [id], onDelete: Cascade)
 
   @@map("recurring_request_items")
+}
+
+model Simcard {
+  id        String         @id @default(uuid())
+  msisdn    String         @unique
+  label     String?
+  grup      String?
+  siteId    String?
+  site      Site?          @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  usages    SimcardUsage[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("simcards")
+}
+
+model SimcardUsage {
+  id             String   @id @default(uuid())
+  simcardId      String
+  simcard        Simcard  @relation(fields: [simcardId], references: [id], onDelete: Cascade)
+  periode        String   // e.g. "Juni 2026", "Mei 2026"
+  kuotaUsed      Decimal  @db.Decimal(10, 2) // Used GB
+  kuotaTotal     Decimal  @db.Decimal(10, 2) // Total GB
+  kuotaLimitText String?  // e.g. "10.0 GB"
+  voiceUsed      Int      @default(0)
+  voiceTotal     Int      @default(60)
+  voiceLimitText String?  // e.g. "60 Min"
+  smsUsed        Int      @default(0)
+  smsTotal       Int      @default(60)
+  smsLimitText   String?  // e.g. "60 SMS"
+  scrapedAt      DateTime @default(now())
+
+  @@unique([simcardId, periode])
+  @@map("simcard_usages")
 }
 

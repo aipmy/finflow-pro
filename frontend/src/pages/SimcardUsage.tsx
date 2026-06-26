@@ -13,85 +13,147 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
-  Smartphone, Search, RefreshCw, Wifi, Phone, MessageSquare, AlertTriangle, Info, Calendar
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "@/components/ui/select";
+import {
+  Smartphone, Search, RefreshCw, Wifi, Phone, MessageSquare, AlertTriangle, Info, Calendar, MapPin, Database
 } from "lucide-react";
 
 interface Simcard {
   msisdn: string;
   lokasi: string;
   grup: string;
+  site: string;
+  siteId: string;
   kuota_digunakan: string;
   sisa_kuota: string;
   voice_digunakan: string;
   sisa_voice: string;
   sms_digunakan: string;
   sisa_sms: string;
-  error?: string;
+  kuotaPercent: number;
+  scrapedAt: string | null;
+}
+
+interface Site {
+  id: string;
+  name: string;
 }
 
 export default function SimcardUsage() {
   const [data, setData] = useState<Simcard[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  
+  // Filters
   const [search, setSearch] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("Juni 2026");
+  const [selectedSiteId, setSelectedSiteId] = useState<string>("ALL");
+  const [selectedGrup, setSelectedGrup] = useState<string>("ALL");
+  const [showCriticalOnly, setShowCriticalOnly] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  
   const [expandedMsisdn, setExpandedMsisdn] = useState<string | null>(null);
 
-  const fetchData = async (showToast = false) => {
-    try {
-      if (showToast) setRefreshing(true);
-      else setLoading(true);
-
-      const res = await apiClient.simcard.getUsage();
-      if (res.success && res.data) {
-        setData(res.data);
-        if (res.data.length > 0 && !expandedMsisdn) {
-          setExpandedMsisdn(res.data[0].msisdn); // expand first card by default
-        }
-        if (showToast) toast.success("Data penggunaan kartu berhasil diperbarui!");
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Gagal memuat data penggunaan kartu");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Get Indonesian Month Year helper
+  const getIndonesianMonthYear = () => {
+    const months = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const date = new Date();
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
   useEffect(() => {
-    fetchData();
+    setSelectedMonth(getIndonesianMonthYear());
   }, []);
 
-  const handleRefresh = () => {
-    fetchData(true);
+  const loadSitesAndData = async () => {
+    try {
+      setLoading(true);
+      const [usageRes, sitesRes] = await Promise.all([
+        apiClient.simcard.getUsage({
+          periode: selectedMonth || getIndonesianMonthYear()
+        }),
+        apiClient.meta.sites()
+      ]);
+
+      if (usageRes.success && usageRes.data) {
+        setData(usageRes.data);
+        if (usageRes.data.length > 0 && !expandedMsisdn) {
+          setExpandedMsisdn(usageRes.data[0].msisdn);
+        }
+      }
+      if (sitesRes) {
+        setSites(sitesRes);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Gagal memuat data dari database");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Filter data based on search
-  const filteredData = data.filter(
-    (item) =>
+  // Reload when month changes
+  useEffect(() => {
+    if (selectedMonth) {
+      loadSitesAndData();
+    }
+  }, [selectedMonth]);
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      toast.info("Memulai sinkronisasi background scraper ke database. Mohon tunggu...");
+      const res = await apiClient.simcard.sync();
+      if (res.success) {
+        toast.success(`Sukses mensinkronkan ${res.count} kartu SIM ke database!`);
+        loadSitesAndData();
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Gagal mensinkronkan data scraper");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Get unique Tol/Grup list
+  const groupsList = Array.from(new Set(data.map(item => item.grup).filter(Boolean)));
+
+  // Filter the cards locally based on state
+  const filteredData = data.filter(item => {
+    // 1. Text Search
+    const matchesSearch =
       item.msisdn.toLowerCase().includes(search.toLowerCase()) ||
       item.lokasi.toLowerCase().includes(search.toLowerCase()) ||
-      (item.grup && item.grup.toLowerCase().includes(search.toLowerCase()))
-  );
+      (item.grup && item.grup.toLowerCase().includes(search.toLowerCase()));
 
-  // Parse helper for data quota (e.g., "0.0 / 10 GB" -> used: 0, total: 10)
+    // 2. Site ID filter
+    const matchesSite = selectedSiteId === "ALL" || item.siteId === selectedSiteId;
+
+    // 3. Toll group filter
+    const matchesGrup = selectedGrup === "ALL" || item.grup === selectedGrup;
+
+    // 4. Critical only (usage >= 90%)
+    const matchesCritical = !showCriticalOnly || item.kuotaPercent >= 90;
+
+    return matchesSearch && matchesSite && matchesGrup && matchesCritical;
+  });
+
+  // Parse helper for data quota (used: 0, total: 10)
   const parseQuota = (quotaStr: string) => {
-    if (!quotaStr || quotaStr === "Tidak Ditemukan") return { used: 0, total: 10, percent: 0, unit: "GB" };
-    // match numbers
+    if (!quotaStr || quotaStr === "Tidak Ditemukan") return { used: 0, total: 10 };
     const parts = quotaStr.match(/([\d.]+)/g);
-    const unitMatch = quotaStr.match(/[A-Za-z]+/);
-    const unit = unitMatch ? unitMatch[0] : "GB";
     if (parts && parts.length >= 2) {
-      const used = parseFloat(parts[0]);
-      const total = parseFloat(parts[1]);
-      const percent = total > 0 ? (used / total) * 100 : 0;
-      return { used, total, percent, unit };
+      return { used: parseFloat(parts[0]), total: parseFloat(parts[1]) };
     }
-    return { used: 0, total: 10, percent: 0, unit };
+    return { used: 0, total: 10 };
   };
 
-  // Parse voice quota (e.g. "0 / 60 Min")
+  // Parse voice quota
   const parseVoice = (voiceStr: string) => {
     if (!voiceStr) return { used: 0, total: 60, percent: 0 };
     const parts = voiceStr.match(/(\d+)/g);
@@ -104,7 +166,7 @@ export default function SimcardUsage() {
     return { used: 0, total: 60, percent: 0 };
   };
 
-  // Parse SMS quota (e.g. "0 / 60 SMS")
+  // Parse SMS quota
   const parseSms = (smsStr: string) => {
     if (!smsStr) return { used: 0, total: 60, percent: 0 };
     const parts = smsStr.match(/(\d+)/g);
@@ -125,20 +187,31 @@ export default function SimcardUsage() {
           <div>
             <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
               <Smartphone className="h-6 w-6 text-primary" />
-              Monitoring Penggunaan Kartu SIM
+              Monitoring Modem 4G Traffic Counting
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Data penggunaan kuota secara real-time yang disinkronkan langsung dari IM3 Platinum Business Hub
+              Data dibaca langsung dari database lokal dan diperbarui secara berkala via background scraper IOH
             </p>
           </div>
-          <Button
-            onClick={handleRefresh}
-            disabled={loading || refreshing}
-            className="self-start sm:self-auto gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Menyinkronkan..." : "Sinkronisasi Live"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={loadSitesAndData}
+              disabled={loading || syncing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button
+              onClick={handleSync}
+              disabled={loading || syncing}
+              className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+            >
+              <Database className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Mensinkronkan..." : "Picu Sinkronisasi Scraper"}
+            </Button>
+          </div>
         </div>
 
         {/* Loading state */}
@@ -155,20 +228,20 @@ export default function SimcardUsage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="bg-card/45 backdrop-blur-sm border-primary/10">
                 <CardHeader className="pb-2">
-                  <CardDescription className="text-xs font-semibold uppercase tracking-wider">Total SIM Aktif</CardDescription>
-                  <CardTitle className="text-3xl font-extrabold text-foreground">{data.length} Kartu</CardTitle>
+                  <CardDescription className="text-xs font-semibold uppercase tracking-wider">Total Modem 4G</CardDescription>
+                  <CardTitle className="text-3xl font-extrabold text-foreground">{data.length} Perangkat</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                     <Wifi className="h-3.5 w-3.5 text-emerald-500" />
-                    Semua kartu terhubung dengan baik
+                    Aktif mengirimkan telemetry data traffic
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="bg-card/45 backdrop-blur-sm border-primary/10">
                 <CardHeader className="pb-2">
-                  <CardDescription className="text-xs font-semibold uppercase tracking-wider">Total Penggunaan Data</CardDescription>
+                  <CardDescription className="text-xs font-semibold uppercase tracking-wider">Total Data Digunakan</CardDescription>
                   <CardTitle className="text-3xl font-extrabold text-primary">
                     {data.reduce((acc, item) => {
                       const { used } = parseQuota(item.kuota_digunakan);
@@ -178,71 +251,125 @@ export default function SimcardUsage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-xs text-muted-foreground">
-                    Dari total kuota gabungan sebesar {" "}
-                    {data.reduce((acc, item) => {
-                      const { total } = parseQuota(item.kuota_digunakan);
-                      return acc + total;
-                    }, 0)} GB
+                    Akumulasi penggunaan modem bulan ini
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="bg-card/45 backdrop-blur-sm border-primary/10">
                 <CardHeader className="pb-2">
-                  <CardDescription className="text-xs font-semibold uppercase tracking-wider">Status Quota Kritis</CardDescription>
-                  <CardTitle className="text-3xl font-extrabold text-emerald-500">
-                    {data.filter(item => {
-                      const { percent } = parseQuota(item.kuota_digunakan);
-                      return percent > 90;
-                    }).length} Kartu
+                  <CardDescription className="text-xs font-semibold uppercase tracking-wider">Modem Kuota Kritis</CardDescription>
+                  <CardTitle className={`text-3xl font-extrabold ${
+                    data.filter(item => item.kuotaPercent >= 90).length > 0 ? "text-destructive" : "text-emerald-500"
+                  }`}>
+                    {data.filter(item => item.kuotaPercent >= 90).length} Lokasi
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                    Kartu dengan penggunaan kuota di atas 90%
+                    Perangkat dengan penggunaan kuota &gt;= 90%
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Filter Panel */}
+            <Card className="border-border/60 bg-muted/20">
+              <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari MSISDN, Lokasi..."
+                      className="pl-9 bg-background border-input"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Site Dropdown */}
+                  <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Semua Lokasi Site" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Semua Site</SelectItem>
+                      {sites.map(site => (
+                        <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Toll group dropdown */}
+                  <Select value={selectedGrup} onValueChange={setSelectedGrup}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Semua Tol/Grup" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Semua Tol/Grup</SelectItem>
+                      {groupsList.map(g => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Month filter */}
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Pilih Periode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Juni 2026", "Mei 2026", "April 2026"].map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Critical quota switch */}
+                <div className="flex items-center gap-2 min-w-[180px] justify-end">
+                  <label className="text-xs font-semibold cursor-pointer select-none text-muted-foreground flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={showCriticalOnly}
+                      onChange={(e) => setShowCriticalOnly(e.target.checked)}
+                      className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                    />
+                    Hanya Kuota Kritis (&gt;=90%)
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Main Area */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Card List Table */}
               <div className="lg:col-span-7 space-y-4">
                 <Card className="border-border">
-                  <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base font-semibold">Daftar SIM Card</CardTitle>
-                      <CardDescription className="text-xs">Pilih kartu untuk melihat rincian sisa benefit</CardDescription>
-                    </div>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold">Daftar Modem Tol</CardTitle>
+                    <CardDescription className="text-xs">
+                      Menampilkan {filteredData.length} dari {data.length} perangkat terdaftar
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Cari MSISDN, Lokasi, atau Grup..."
-                        className="pl-9 bg-background/50 border-input"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>
-
+                  <CardContent>
                     <div className="border border-border rounded-lg overflow-hidden bg-background/30">
                       <Table>
                         <TableHeader className="bg-muted/40">
                           <TableRow>
                             <TableHead className="w-12 text-center text-xs">NO</TableHead>
                             <TableHead className="text-xs">MSISDN</TableHead>
-                            <TableHead className="text-xs">LABEL / LOKASI</TableHead>
-                            <TableHead className="text-xs w-28 text-center">AKSI</TableHead>
+                            <TableHead className="text-xs">LABEL LOKASI MODEM</TableHead>
+                            <TableHead className="text-xs w-28 text-center">PENGGUNAAN</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {filteredData.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-xs">
-                                Tidak ada data kartu SIM ditemukan.
+                                Tidak ada data modem ditemukan dengan filter ini.
                               </TableCell>
                             </TableRow>
                           ) : (
@@ -257,21 +384,34 @@ export default function SimcardUsage() {
                                 <TableCell className="text-center font-medium text-xs">{idx + 1}</TableCell>
                                 <TableCell className="font-semibold text-xs tracking-wide">{item.msisdn}</TableCell>
                                 <TableCell className="text-xs">
-                                  <div className="font-medium text-foreground">{item.lokasi}</div>
-                                  {item.grup && (
-                                    <Badge variant="outline" className="mt-1 text-[10px] px-1 py-0 border-primary/20 bg-primary/5 text-primary">
-                                      {item.grup}
-                                    </Badge>
-                                  )}
+                                  <div className="font-semibold text-foreground flex items-center gap-1">
+                                    <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                    {item.lokasi}
+                                  </div>
+                                  <div className="flex gap-1.5 mt-1.5">
+                                    {item.grup && (
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/20 bg-primary/5 text-primary">
+                                        {item.grup}
+                                      </Badge>
+                                    )}
+                                    {item.site && (
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-muted-foreground/20 bg-muted text-muted-foreground">
+                                        Site: {item.site}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <Button
-                                    variant="outline"
-                                    size="xs"
-                                    className="h-7 text-xs border-primary/25 text-primary hover:bg-primary/10"
-                                  >
-                                    Lihat Detail
-                                  </Button>
+                                  <div className="space-y-1">
+                                    <div className="text-[10px] font-bold text-foreground">{item.kuota_digunakan}</div>
+                                    <Progress
+                                      value={item.kuotaPercent}
+                                      className={`h-1.5 w-20 mx-auto bg-muted ${
+                                        item.kuotaPercent >= 90 ? "[&>div]:bg-destructive" :
+                                        item.kuotaPercent >= 75 ? "[&>div]:bg-amber-500" : "[&>div]:bg-primary"
+                                      }`}
+                                    />
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))
@@ -292,7 +432,7 @@ export default function SimcardUsage() {
                       <Card className="h-full border-border flex items-center justify-center p-8 text-center text-muted-foreground">
                         <div className="space-y-2">
                           <Info className="h-8 w-8 mx-auto text-muted-foreground/50" />
-                          <p className="text-xs">Silakan pilih salah satu kartu SIM di daftar sebelah kiri untuk melihat rincian sisa kuota.</p>
+                          <p className="text-xs">Pilih salah satu modem tol di tabel untuk melihat grafik benefit detail.</p>
                         </div>
                       </Card>
                     );
@@ -307,36 +447,24 @@ export default function SimcardUsage() {
                       <div className="p-5 border-b border-border bg-muted/30">
                         <div className="text-xs font-semibold text-primary uppercase tracking-wider">MSISDN: {selectedSim.msisdn}</div>
                         <h3 className="text-lg font-bold text-foreground mt-1">{selectedSim.lokasi}</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">Tipe: Individual | Grup: {selectedSim.grup || "Default"}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Tol/Grup: {selectedSim.grup || "Default"} | Site: {selectedSim.site || "N/A"}</p>
+                        {selectedSim.scrapedAt && (
+                          <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Sinkronisasi terakhir: {new Date(selectedSim.scrapedAt).toLocaleString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </p>
+                        )}
                       </div>
 
                       <CardContent className="p-5 space-y-6">
-                        {/* Month filter inside details */}
-                        <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                          <span className="text-xs font-semibold flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                            Periode Benefit
-                          </span>
-                          <div className="flex gap-1">
-                            {["Juni 2026", "Mei 2026", "April 2026"].map((m) => (
-                              <button
-                                key={m}
-                                onClick={() => setSelectedMonth(m)}
-                                className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-all ${
-                                  selectedMonth === m
-                                    ? "bg-primary text-primary-foreground shadow-sm"
-                                    : "bg-muted text-muted-foreground hover:bg-accent"
-                                }`}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
                         <div className="space-y-5">
                           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            Rincian Sisa Benefit — {selectedMonth}
+                            Rincian Benefit Aktif — {selectedMonth}
                           </h4>
 
                           {/* Data Quota */}
@@ -346,14 +474,22 @@ export default function SimcardUsage() {
                                 <Wifi className="h-4 w-4 text-primary" />
                                 Kuota Data
                               </span>
-                              <Badge className="bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-semibold border-none">
-                                {(100 - dataQuota.percent).toFixed(0)}% tersisa
+                              <Badge className={`${
+                                selectedSim.kuotaPercent >= 90 ? "bg-destructive/15 text-destructive border-none" : "bg-primary/10 text-primary border-none"
+                              } text-[10px] font-semibold`}>
+                                {(100 - selectedSim.kuotaPercent).toFixed(0)}% tersisa
                               </Badge>
                             </div>
                             <div className="text-xl font-extrabold mt-1 text-foreground">
-                              {dataQuota.used.toFixed(1)} / {dataQuota.total} {dataQuota.unit}
+                              {dataQuota.used.toFixed(1)} / {dataQuota.total} GB
                             </div>
-                            <Progress value={dataQuota.percent} className="h-2 bg-muted [&>div]:bg-primary" />
+                            <Progress
+                              value={selectedSim.kuotaPercent}
+                              className={`h-2 bg-muted ${
+                                selectedSim.kuotaPercent >= 90 ? "[&>div]:bg-destructive" :
+                                selectedSim.kuotaPercent >= 75 ? "[&>div]:bg-amber-500" : "[&>div]:bg-primary"
+                              }`}
+                            />
                             <div className="text-[10px] text-muted-foreground font-medium">
                               Sisa Kuota Tersedia: <span className="font-semibold text-foreground">{selectedSim.sisa_kuota}</span>
                             </div>

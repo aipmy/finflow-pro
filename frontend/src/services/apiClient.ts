@@ -483,12 +483,19 @@ export const apiClient = {
   },
 
   simcard: {
-    getUsage: async (dashboardId?: string, msisdn?: string) => {
+    getUsage: async (filters: { search?: string; siteId?: string; isCritical?: boolean; periode?: string } = {}) => {
       const params = new URLSearchParams();
-      if (dashboardId) params.append("dashboardId", dashboardId);
-      if (msisdn) params.append("msisdn", msisdn);
+      if (filters.search) params.append("search", filters.search);
+      if (filters.siteId) params.append("siteId", filters.siteId);
+      if (filters.isCritical) params.append("isCritical", String(filters.isCritical));
+      if (filters.periode) params.append("periode", filters.periode);
       const queryString = params.toString() ? `?${params.toString()}` : "";
       return request(`/simcard/usage${queryString}`);
+    },
+    sync: async () => {
+      return request("/simcard/sync", {
+        method: "POST"
+      });
     }
   }
 };
