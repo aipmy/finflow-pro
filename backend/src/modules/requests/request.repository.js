@@ -41,6 +41,7 @@ export const requestRepository = {
         category: true,
         vendor: true,
         financeRealization: true,
+        attachments: true,
         items: {
           include: {
             category: true,

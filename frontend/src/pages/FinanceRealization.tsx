@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Wallet, Upload, CheckCircle2, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Wallet, Upload, CheckCircle2, FileText, Paperclip } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -168,12 +169,19 @@ export default function FinanceRealization() {
               <div key={r.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-border/50 bg-card/60 hover:bg-muted/30 transition-all duration-150 group">
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-block font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary/80 text-secondary-foreground border border-border/80 font-semibold tracking-tight shadow-sm">
+                    <Link 
+                      to={`/requests/${r.id}`} 
+                      className="inline-block font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary/80 text-secondary-foreground border border-border/80 font-semibold tracking-tight shadow-sm hover:text-primary hover:border-primary/50 transition-colors"
+                    >
                       {r.code}
-                    </span>
+                    </Link>
                     <StatusBadge status={r.status} />
                   </div>
-                  <div className="text-sm font-bold tracking-tight text-foreground">{r.title}</div>
+                  <div className="text-sm font-bold tracking-tight text-foreground">
+                    <Link to={`/requests/${r.id}`} className="hover:text-primary transition-colors">
+                      {r.title}
+                    </Link>
+                  </div>
                   <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 font-medium">
                     <span className="text-foreground font-semibold">{u?.name}</span>
                     <span className="text-border">•</span>
@@ -181,6 +189,22 @@ export default function FinanceRealization() {
                     <span className="text-border">•</span>
                     <span className="italic">{formatDate(r.createdAt)}</span>
                   </div>
+                  {r.attachments && r.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {r.attachments.map((att: any) => (
+                        <a
+                          key={att.id || att.url}
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground bg-muted/50 border border-border/80 px-1.5 py-0.5 rounded transition-colors"
+                        >
+                          <Paperclip className="h-2.5 w-2.5" />
+                          <span className="truncate max-w-[120px]">{att.name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center justify-between md:justify-end gap-5 pt-3 md:pt-0 border-t md:border-none border-dashed border-border/60">
@@ -201,6 +225,25 @@ export default function FinanceRealization() {
                         <DialogDescription className="text-xs text-muted-foreground">{r.title}</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
+                        {r.attachments && r.attachments.length > 0 && (
+                          <div className="space-y-1.5 p-3 rounded-lg border border-border/60 bg-muted/20">
+                            <Label className="text-xs font-semibold">Lampiran Pengajuan</Label>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {r.attachments.map((att: any) => (
+                                <a
+                                  key={att.id || att.url}
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline bg-card border border-border/80 px-2.5 py-1 rounded shadow-sm transition-colors"
+                                >
+                                  <Paperclip className="h-3.5 w-3.5" />
+                                  <span className="truncate max-w-[200px]">{att.name}</span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <Label className="text-xs font-semibold">Diajukan</Label>
@@ -280,24 +323,60 @@ export default function FinanceRealization() {
         <CardContent className="p-5 space-y-3.5">
           {closed.map(r => {
             const diff = Number(r.financeRealization?.realizedAmount || 0) - Number(r.amount);
+            const u = r.requester;
+            const s = r.site;
             return (
-              <div key={r.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-card/60 hover:bg-muted/30 transition-all duration-150 group">
-                <div className="min-w-0 space-y-1.5">
+              <div key={r.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-border/50 bg-card/60 hover:bg-muted/30 transition-all duration-150 group">
+                <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-block font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary/80 text-secondary-foreground border border-border/80 font-semibold tracking-tight shadow-sm">
+                    <Link 
+                      to={`/requests/${r.id}`} 
+                      className="inline-block font-mono text-[10px] px-1.5 py-0.5 rounded bg-secondary/80 text-secondary-foreground border border-border/80 font-semibold tracking-tight shadow-sm hover:text-primary hover:border-primary/50 transition-colors"
+                    >
                       {r.code}
-                    </span>
+                    </Link>
                     <StatusBadge status={r.status} />
                   </div>
-                  <div className="text-sm font-bold tracking-tight text-foreground">{r.title}</div>
+                  <div className="text-sm font-bold tracking-tight text-foreground">
+                    <Link to={`/requests/${r.id}`} className="hover:text-primary transition-colors">
+                      {r.title}
+                    </Link>
+                  </div>
+                  <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 font-medium">
+                    <span className="text-foreground font-semibold">{u?.name}</span>
+                    <span className="text-border">•</span>
+                    <span>{s?.name}</span>
+                    <span className="text-border">•</span>
+                    <span className="italic">{formatDate(r.createdAt)}</span>
+                  </div>
+                  {r.attachments && r.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {r.attachments.map((att: any) => (
+                        <a
+                          key={att.id || att.url}
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground bg-muted/50 border border-border/80 px-1.5 py-0.5 rounded transition-colors"
+                        >
+                          <Paperclip className="h-2.5 w-2.5" />
+                          <span className="truncate max-w-[120px]">{att.name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
-                <div className="flex items-center justify-end gap-5 pl-4">
-                  <div className="text-right">
-                    <div className="text-base font-black text-foreground">{formatRupiah(Number(r.financeRealization?.realizedAmount || 0))}</div>
+                <div className="flex items-center justify-between md:justify-end gap-5 pt-3 md:pt-0 border-t md:border-none border-dashed border-border/60">
+                  <div className="text-left md:text-right">
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Realisasi</div>
+                    <div className="text-base font-black text-foreground mt-0.5">{formatRupiah(Number(r.financeRealization?.realizedAmount || 0))}</div>
                     <div className={`text-[10px] font-bold mt-0.5 ${diff >= 0 ? "text-destructive" : "text-success"}`}>
                       {diff >= 0 ? "+" : ""}{formatRupiah(diff)}
                     </div>
+                  </div>
+                  
+                  <div>
                     {r.financeRealization?.receiptUrl && (
                       <button 
                         onClick={() => {
@@ -317,9 +396,9 @@ export default function FinanceRealization() {
                             setIsPreviewOpen(true);
                           }
                         }}
-                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary-glow font-bold bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded mt-1.5 transition-colors"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary-glow font-bold bg-primary/5 border border-primary/20 px-2 py-1 rounded transition-colors"
                       >
-                        <FileText className="h-3 w-3" />
+                        <FileText className="h-3.5 w-3.5" />
                         Lihat Bukti
                       </button>
                     )}

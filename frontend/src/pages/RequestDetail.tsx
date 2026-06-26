@@ -583,7 +583,17 @@ export default function RequestDetail() {
           {/* Realisasi */}
           {realizedAmt !== undefined && (
             <Card className="shadow-elegant border-success/30 bg-success/5">
-              <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4 text-success" />Realisasi Finance</CardTitle></CardHeader>
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2 mt-1"><Wallet className="h-4 w-4 text-success" />Realisasi Finance</CardTitle>
+                {r.financeRealization?.receiptUrl && (
+                  <Button variant="outline" size="sm" asChild className="h-8 bg-white/50 hover:bg-white/80 border-success/20">
+                    <a href={r.financeRealization.receiptUrl} target="_blank" rel="noopener noreferrer">
+                      <FileText className="h-3.5 w-3.5 mr-1.5 text-success" />
+                      Lihat Bukti
+                    </a>
+                  </Button>
+                )}
+              </CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div><div className="text-xs text-muted-foreground mb-1 font-medium">Diajukan</div><div className="font-semibold">{formatRupiah(Number(r.amount))}</div></div>
                 <div><div className="text-xs text-muted-foreground mb-1 font-medium">Realisasi Finance</div><div className="font-semibold">{formatRupiah(realizedAmt)}</div></div>

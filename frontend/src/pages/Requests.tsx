@@ -142,7 +142,11 @@ export default function Requests() {
                 return (
                   <tr key={r.id} className="border-t border-border hover:bg-muted/30">
                     <td className="p-3"><Link to={`/requests/${r.id}`} className="font-mono text-xs text-primary hover:underline">{r.code}</Link></td>
-                    <td className="p-3 font-medium max-w-xs truncate">{r.title}</td>
+                    <td className="p-3 font-medium max-w-xs truncate">
+                      <Link to={`/requests/${r.id}`} className="hover:text-primary transition-colors">
+                        {r.title}
+                      </Link>
+                    </td>
                     <td className="p-3 text-xs text-muted-foreground">{typeLabels[r.type]}</td>
                     <td className="p-3 text-xs">{u?.name}</td>
                     <td className="p-3 text-xs">{s?.name}</td>
