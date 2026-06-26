@@ -140,4 +140,33 @@ export function initSimcardScheduler() {
     });
   });
   console.log("[SIMCARD SCHEDULER] Registered SIM card sync cron job (daily at 01:00 AM)");
+
+  // Run sync on startup in background IF it has not been synced today
+  const runStartupSync = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const lastSync = await prisma.simcardUsage.findFirst({
+        where: {
+          scrapedAt: {
+            gte: today
+          }
+        }
+      });
+
+      if (!lastSync) {
+        console.log("[SIMCARD SCHEDULER] No sync detected for today. Running automatic startup sync in background...");
+        syncSimcardsToDatabase().catch(err => {
+          console.error("[SIMCARD SCHEDULER] Error in automatic startup sync:", err);
+        });
+      } else {
+        console.log("[SIMCARD SCHEDULER] SIM cards already synced today. Skipping startup sync.");
+      }
+    } catch (err) {
+      console.error("[SIMCARD SCHEDULER] Failed to check last sync on startup:", err);
+    }
+  };
+
+  runStartupSync();
 }
