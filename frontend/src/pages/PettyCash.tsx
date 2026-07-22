@@ -63,13 +63,15 @@ export default function PettyCash() {
   const startCamera = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.error("Auto-play was prevented", e));
       }
       streamRef.current = stream;
       setIsCameraOpen(true);
     } catch (err) {
+      console.error(err);
       toast.error("Gagal mengakses kamera. Pastikan Anda telah memberikan izin.");
     }
   };
@@ -759,17 +761,17 @@ export default function PettyCash() {
                       <p className="text-xs text-muted-foreground mt-0.5">Klik atau drop file baru untuk mengganti</p>
                     </div>
                   ) : isCameraOpen ? (
-                    <div className="w-full flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative w-full max-w-[200px] rounded-md overflow-hidden bg-black aspect-[3/4] sm:aspect-video flex items-center justify-center">
-                        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    <div className="w-full flex flex-col items-center gap-3 p-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative w-full max-w-lg rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center shadow-inner">
+                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                         <canvas ref={canvasRef} className="hidden" />
                       </div>
-                      <div className="flex gap-2 mt-2">
-                        <Button type="button" size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); stopCamera(); }}>
-                          <X className="h-4 w-4 mr-1" /> Batal
+                      <div className="flex gap-3 w-full max-w-sm mt-2">
+                        <Button type="button" size="default" variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); stopCamera(); }}>
+                          <X className="h-4 w-4 mr-1.5" /> Batal
                         </Button>
-                        <Button type="button" size="sm" className="gradient-primary text-primary-foreground" onClick={takePhoto}>
-                          <Camera className="h-4 w-4 mr-1" /> Ambil Foto
+                        <Button type="button" size="default" className="flex-[2] gradient-primary text-primary-foreground font-semibold" onClick={takePhoto}>
+                          <Camera className="h-4 w-4 mr-1.5" /> Ambil Foto
                         </Button>
                       </div>
                     </div>
