@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { WebcamCapture } from "@/components/WebcamCapture";
 import { Coins, ArrowDown, ArrowUp, Plus, TrendingUp, FileText, Upload, Pencil, Trash2, Search, ArrowUpDown, Camera, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,59 +57,10 @@ export default function PettyCash() {
 
   // Camera states
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const startCamera = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(e => console.error("Auto-play was prevented", e));
-      }
-      streamRef.current = stream;
-      setIsCameraOpen(true);
-    } catch (err) {
-      console.error(err);
-      toast.error("Gagal mengakses kamera. Pastikan Anda telah memberikan izin.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setIsCameraOpen(false);
-  };
-
-  const takePhoto = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const newFile = new File([blob], `receipt-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            setFile(newFile);
-            stopCamera();
-            toast.success("Foto berhasil diambil!");
-          }
-        }, 'image/jpeg', 0.8);
-      }
-    }
-  };
 
   useEffect(() => {
     if (!isOpen) {
-      stopCamera();
+      setIsCameraOpen(false);
     }
   }, [isOpen]);
 
@@ -761,26 +713,22 @@ export default function PettyCash() {
                       <p className="text-xs text-muted-foreground mt-0.5">Klik atau drop file baru untuk mengganti</p>
                     </div>
                   ) : isCameraOpen ? (
-                    <div className="w-full flex flex-col items-center gap-3 p-1" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative w-full max-w-lg rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center shadow-inner">
-                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                        <canvas ref={canvasRef} className="hidden" />
-                      </div>
-                      <div className="flex gap-3 w-full max-w-sm mt-2">
-                        <Button type="button" size="default" variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); stopCamera(); }}>
-                          <X className="h-4 w-4 mr-1.5" /> Batal
-                        </Button>
-                        <Button type="button" size="default" className="flex-[2] gradient-primary text-primary-foreground font-semibold" onClick={takePhoto}>
-                          <Camera className="h-4 w-4 mr-1.5" /> Ambil Foto
-                        </Button>
-                      </div>
+                    <div className="w-full p-2" onClick={(e) => e.stopPropagation()}>
+                      <WebcamCapture 
+                        onCapture={(capturedFile) => {
+                          setFile(capturedFile);
+                          setIsCameraOpen(false);
+                          toast.success("Foto berhasil diambil!");
+                        }}
+                        onCancel={() => setIsCameraOpen(false)}
+                      />
                     </div>
                   ) : (
                     <div className="text-center w-full flex flex-col items-center">
                       <Upload className="mx-auto h-6 w-6 text-muted-foreground mb-2 pointer-events-none" />
                       <p className="text-sm font-medium text-foreground pointer-events-none">Klik atau drag & drop file ke sini</p>
                       <p className="text-xs text-muted-foreground mt-0.5 mb-3 pointer-events-none">Atau drop langsung di mana saja pada popup ini</p>
-                      <Button type="button" size="sm" variant="secondary" onClick={startCamera}>
+                      <Button type="button" size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setIsCameraOpen(true); }}>
                         <Camera className="h-4 w-4 mr-1.5" /> Buka Kamera
                       </Button>
                     </div>
