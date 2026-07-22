@@ -561,7 +561,7 @@ export default function PettyCash() {
             </Button>
           </DialogTrigger>
           <DialogContent 
-            className="overflow-hidden"
+            className="max-h-[90vh] overflow-y-auto overflow-x-hidden"
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
             onDrop={(e) => {
