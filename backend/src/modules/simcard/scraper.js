@@ -44,30 +44,70 @@ export async function getUsageData(dashboardId = "335", msisdn = "") {
     console.log(`Fetching dashboard from: ${dashboardUrl}`);
     await page.goto(dashboardUrl, { waitUntil: "networkidle" });
 
-    const content = await page.content();
-    console.log("Parsing dashboard table...");
-    const $ = cheerio.load(content);
+    let content = await page.content();
+    console.log("Parsing dashboard table page 1...");
+    let $ = cheerio.load(content);
 
     const contacts = [];
 
-    $('tbody[data-controller="msisdn-expand"]').each((i, el) => {
-      const msisdnAttr = $(el).attr("data-sort-msisdn");
-      if (msisdn && msisdnAttr !== msisdn) return;
+    function extractContactsFromPage() {
+      $('tbody[data-controller="msisdn-expand"]').each((i, el) => {
+        const msisdnAttr = $(el).attr("data-sort-msisdn");
+        if (msisdn && msisdnAttr !== msisdn) return;
 
-      const name = $(el).attr("data-sort-name");
-      const group = $(el).attr("data-sort-group");
-      const activationId = $(el).attr("data-sort-default");
+        const name = $(el).attr("data-sort-name");
+        const group = $(el).attr("data-sort-group");
+        const activationId = $(el).attr("data-sort-default");
 
-      if (msisdnAttr) {
-        contacts.push({
-          msisdn: msisdnAttr,
-          lokasi: name,
-          grup: group,
-          activationId: activationId
-        });
+        if (msisdnAttr) {
+          contacts.push({
+            msisdn: msisdnAttr,
+            lokasi: name,
+            grup: group,
+            activationId: activationId
+          });
+        }
+      });
+    }
+
+    // Extract first page
+    extractContactsFromPage();
+
+    // Detect pagination
+    let totalPages = 1;
+    let pageParamName = "page";
+    $("a").each((i, el) => {
+      const href = $(el).attr("href") || "";
+      const match = href.match(/[\?&](page_\d+)=(\d+)/);
+      if (match) {
+        pageParamName = match[1];
+        const pageNum = parseInt(match[2], 10);
+        if (pageNum > totalPages) {
+          totalPages = pageNum;
+        }
       }
     });
 
+    console.log(`Detected pagination: parameter=${pageParamName}, totalPages=${totalPages}`);
+
+    // If msisdn is specified and already found in page 1, skip fetching other pages
+    const hasTargetMsisdn = () => msisdn && contacts.some(c => c.msisdn === msisdn);
+
+    // Fetch pages 2 to totalPages if target msisdn is not yet found
+    for (let p = 2; p <= totalPages; p++) {
+      if (hasTargetMsisdn()) {
+        console.log(`Target MSISDN ${msisdn} found. Stopping pagination loop.`);
+        break;
+      }
+
+      const pageUrl = `https://ide.ioh.co.id/portal/customers/dashboards/${dashboardId}/usage?${pageParamName}=${p}`;
+      console.log(`Fetching dashboard page ${p}/${totalPages} from: ${pageUrl}`);
+      await page.goto(pageUrl, { waitUntil: "networkidle" });
+
+      const pageContent = await page.content();
+      $ = cheerio.load(pageContent);
+      extractContactsFromPage();
+    }
     console.log(`Found ${contacts.length} numbers to fetch usage for.`);
     const results = [];
     const apiContext = page.context().request;

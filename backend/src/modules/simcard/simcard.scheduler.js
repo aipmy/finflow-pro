@@ -133,6 +133,27 @@ export async function syncSimcardsToDatabase() {
           scrapedAt: new Date()
         }
       });
+
+      // 4. Upsert SimcardDailyLog for today
+      const todayString = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local time format roughly
+      await prisma.simcardDailyLog.upsert({
+        where: {
+          simcardId_date: {
+            simcardId: simcard.id,
+            date: todayString
+          }
+        },
+        update: {
+          kuotaUsed: dataUsed,
+          kuotaTotal: dataTotal
+        },
+        create: {
+          simcardId: simcard.id,
+          date: todayString,
+          kuotaUsed: dataUsed,
+          kuotaTotal: dataTotal
+        }
+      });
     }
 
     const durationMs = Date.now() - startTime;

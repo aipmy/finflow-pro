@@ -420,7 +420,11 @@ function SpenderPanel({ data, onSelectUser }: { data: any; onSelectUser: (userId
                     labelStyle={tooltipLabelStyle}
                     formatter={(v: number) => [formatRupiah(v), "Total"]}
                   />
-                  <Bar dataKey="value" fill="url(#spenderBarGrad)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {data.byUser.slice(0, 10).map((_, i) => (
+                      <Cell key={`spender-bar-cell-${i}`} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1103,7 +1107,11 @@ function ReportPanel({ data, title }: { data: { name: string; value: number }[];
                 labelStyle={tooltipLabelStyle}
                 formatter={(v: number) => [formatRupiah(v), "Total"]}
               />
-              <Bar dataKey="value" fill="url(#reportBarGrad)" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                {data.map((_, i) => (
+                  <Cell key={`bar-cell-${i}`} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

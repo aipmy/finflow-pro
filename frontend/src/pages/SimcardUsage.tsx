@@ -81,6 +81,30 @@ const getIndonesianMonthYear = () => {
   return `${months[date.getMonth()]} ${date.getFullYear()}`;
 };
 
+const getLast12Months = () => {
+  const months = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+  const list = [];
+  const date = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(date.getFullYear(), date.getMonth() - i, 1);
+    list.push(`${months[d.getMonth()]} ${d.getFullYear()}`);
+  }
+  return list;
+};
+
+const getTrendOptions = () => {
+  const months = getLast12Months();
+  const options = [{ value: "1year", label: "1 Tahun (Bulanan)" }];
+  months.forEach(m => {
+    options.push({ value: m, label: `Mingguan - ${m}` });
+    options.push({ value: `daily_${m}`, label: `Harian - ${m}` });
+  });
+  return options;
+};
+
 const parseQuota = (quotaStr: string) => {
   if (!quotaStr || quotaStr === "Tidak Ditemukan") return { used: 0, total: 10 };
   const parts = quotaStr.match(/([\d.]+)/g);
@@ -148,6 +172,7 @@ export default function SimcardUsage() {
   const [selectedGrup, setSelectedGrup] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "SAFE">("ALL");
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [trendFilter, setTrendFilter] = useState("1year");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "kuotaPercent", direction: "desc" });
 
   // Scraper config UI
@@ -175,10 +200,11 @@ export default function SimcardUsage() {
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
+      const reqPeriode = selectedMonth || getIndonesianMonthYear();
       const [usageRes, sitesRes, overviewRes, scraperRes] = await Promise.all([
-        apiClient.simcard.getUsage({ periode: selectedMonth || getIndonesianMonthYear() }),
+        apiClient.simcard.getUsage({ periode: reqPeriode }),
         apiClient.meta.sites(),
-        apiClient.simcard.getOverview(),
+        apiClient.simcard.getOverview(trendFilter, reqPeriode),
         apiClient.simcard.getScraperStatus()
       ]);
 
@@ -196,7 +222,7 @@ export default function SimcardUsage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth]);
+  }, [selectedMonth, trendFilter]);
 
   useEffect(() => {
     if (selectedMonth) loadAll();
@@ -334,8 +360,14 @@ export default function SimcardUsage() {
               Dashboard overview penggunaan kuota modem seluruh lokasi traffic counting.
             </p>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <Button variant="outline" onClick={loadAll} disabled={loading || syncing} className="gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="bg-background w-[140px] h-10"><SelectValue placeholder="Pilih Periode" /></SelectTrigger>
+              <SelectContent>
+                {getLast12Months().map(m => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={loadAll} disabled={loading || syncing} className="gap-2 h-10">
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
@@ -421,7 +453,7 @@ export default function SimcardUsage() {
       </div>
 
       {/* ═══════════════ LOADING ═══════════════ */}
-      {loading ? (
+      {loading && !overview ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-pulse">
           {[...Array(4)].map((_, i) => <Card key={i} className="h-28" />)}
           <Card className="md:col-span-4 h-72" />
@@ -489,16 +521,30 @@ export default function SimcardUsage() {
                 {/* Monthly Trend */}
                 <Card className="border-border/60">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-primary" />
-                      Tren Penggunaan Bulanan
-                    </CardTitle>
-                    <CardDescription className="text-xs">Akumulasi penggunaan data per periode</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-primary" />
+                          Tren Penggunaan {trendFilter === "1year" ? "Tahunan" : trendFilter.startsWith("daily_") ? "Harian" : "Mingguan"}
+                        </CardTitle>
+                        <CardDescription className="text-xs mt-1">Akumulasi penggunaan data per periode</CardDescription>
+                      </div>
+                      <Select value={trendFilter} onValueChange={setTrendFilter}>
+                        <SelectTrigger className="w-[180px] h-8 text-xs bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getTrendOptions().map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="h-52 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={overview.monthlyTrend} margin={{ top: 5, right: 15, left: -15, bottom: 0 }}>
+                        <AreaChart data={overview.monthlyTrend.length === 1 ? [{ periode: "Awal", totalUsed: 0, totalAllocated: 0, count: 0 }, ...overview.monthlyTrend] : overview.monthlyTrend} margin={{ top: 5, right: 15, left: -15, bottom: 0 }}>
                           <defs>
                             <linearGradient id="gradTrend" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="5%" stopColor="hsl(220, 90%, 56%)" stopOpacity={0.25} />
@@ -513,9 +559,13 @@ export default function SimcardUsage() {
                               backgroundColor: "hsl(var(--popover))",
                               borderColor: "hsl(var(--border))",
                               borderRadius: "8px",
-                              fontSize: 11
+                              fontSize: 11,
+                              color: "hsl(var(--foreground))"
                             }}
+                            itemStyle={{ color: "hsl(var(--foreground))" }}
+                            labelStyle={{ color: "hsl(var(--foreground))" }}
                             formatter={(value: number) => [`${value.toFixed(1)} GB`, "Total Penggunaan"]}
+                            cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1, strokeDasharray: "3 3" }}
                           />
                           <Area type="monotone" dataKey="totalUsed" name="Digunakan" stroke="hsl(220, 90%, 56%)" strokeWidth={2.5} fillOpacity={1} fill="url(#gradTrend)" />
                         </AreaChart>
@@ -545,9 +595,13 @@ export default function SimcardUsage() {
                               backgroundColor: "hsl(var(--popover))",
                               borderColor: "hsl(var(--border))",
                               borderRadius: "8px",
-                              fontSize: 11
+                              fontSize: 11,
+                              color: "hsl(var(--foreground))"
                             }}
+                            itemStyle={{ color: "hsl(var(--foreground))" }}
+                            labelStyle={{ color: "hsl(var(--foreground))" }}
                             formatter={(value: number) => [`${value.toFixed(1)} GB`, "Penggunaan"]}
+                            cursor={{ fill: "hsl(var(--muted-foreground))", opacity: 0.1 }}
                           />
                           <Bar dataKey="totalUsed" radius={[0, 4, 4, 0]} barSize={16}>
                             {overview.perGrup.slice(0, 8).map((_, idx) => (
@@ -606,7 +660,7 @@ export default function SimcardUsage() {
           {/* ═══════════════ FILTER PANEL ═══════════════ */}
           <Card className="border-border/60 bg-muted/20">
             <CardContent className="p-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full">
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input placeholder="Cari MSISDN, Lokasi..." className="pl-9 bg-background" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -623,12 +677,6 @@ export default function SimcardUsage() {
                   <SelectContent>
                     <SelectItem value="ALL">Semua Tol/Grup</SelectItem>
                     {groupsList.map(g => (<SelectItem key={g} value={g}>{g}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="bg-background"><SelectValue placeholder="Pilih Periode" /></SelectTrigger>
-                  <SelectContent>
-                    {["Juni 2026", "Mei 2026", "April 2026"].map(m => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                   </SelectContent>
                 </Select>
                 <Button variant="outline" onClick={handleExportCSV} className="gap-1.5 h-10 text-xs border-border/60 hover:bg-muted/60">
@@ -901,7 +949,7 @@ export default function SimcardUsage() {
                         ) : (
                           <div className="h-40 w-full pt-2">
                             <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={historyData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                              <AreaChart data={historyData.length === 1 ? [{ periode: "Awal", kuotaUsed: 0 }, ...historyData] : historyData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                                 <defs>
                                   <linearGradient id="colorKuotaDetail" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
@@ -911,7 +959,18 @@ export default function SimcardUsage() {
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                                 <XAxis dataKey="periode" tickLine={false} axisLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} />
                                 <YAxis tickLine={false} axisLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} unit=" GB" />
-                                <ChartTooltip contentStyle={{ backgroundColor: "hsl(var(--popover))", borderColor: "hsl(var(--border))", borderRadius: "8px", fontSize: 11 }} />
+                                <ChartTooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: "hsl(var(--popover))", 
+                                    borderColor: "hsl(var(--border))", 
+                                    borderRadius: "8px", 
+                                    fontSize: 11,
+                                    color: "hsl(var(--foreground))"
+                                  }} 
+                                  itemStyle={{ color: "hsl(var(--foreground))" }}
+                                  labelStyle={{ color: "hsl(var(--foreground))" }}
+                                  cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1, strokeDasharray: "3 3" }}
+                                />
                                 <Area type="monotone" dataKey="kuotaUsed" name="Digunakan" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorKuotaDetail)" />
                               </AreaChart>
                             </ResponsiveContainer>

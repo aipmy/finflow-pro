@@ -390,9 +390,10 @@ model Simcard {
   label     String?
   grup      String?
   siteId    String?
-  site      Site?          @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  site      Site?             @relation(fields: [siteId], references: [id], onDelete: SetNull)
   usages    SimcardUsage[]
-  createdAt DateTime       @default(now())
+  dailyLogs SimcardDailyLog[]
+  createdAt DateTime          @default(now())
   updatedAt DateTime       @updatedAt
 
   @@map("simcards")
@@ -418,3 +419,17 @@ model SimcardUsage {
   @@map("simcard_usages")
 }
 
+
+model SimcardDailyLog {
+  id             String   @id @default(uuid())
+  simcardId      String
+  date           String   // Format YYYY-MM-DD
+  kuotaUsed      Decimal  @db.Decimal(10, 2)
+  kuotaTotal     Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  simcard        Simcard  @relation(fields: [simcardId], references: [id], onDelete: Cascade)
+
+  @@unique([simcardId, date])
+  @@map("simcard_daily_logs")
+}

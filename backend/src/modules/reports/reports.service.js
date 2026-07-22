@@ -27,7 +27,10 @@ export async function getAggregates(filters = {}) {
   const dateFilter = buildDateFilter(filters);
 
   // Fetch REALIZED/CLOSED requests for actual realized expenses
-  const realizedWhere = { status: { in: ["REALIZED", "CLOSED"] } };
+  const realizedWhere = { 
+    status: { in: ["REALIZED", "CLOSED"] },
+    type: { not: "TOP_UP_PETTY_CASH" }
+  };
   if (dateFilter) realizedWhere.createdAt = dateFilter;
 
   const requests = await prisma.request.findMany({
@@ -47,7 +50,10 @@ export async function getAggregates(filters = {}) {
   });
 
   // Fetch ALL requests (non-draft) for stats like approval rate
-  const allWhere = { status: { notIn: ["DRAFT"] } };
+  const allWhere = { 
+    status: { notIn: ["DRAFT"] },
+    type: { not: "TOP_UP_PETTY_CASH" }
+  };
   if (dateFilter) allWhere.createdAt = dateFilter;
 
   const allRequests = await prisma.request.findMany({
@@ -269,7 +275,10 @@ export async function getAggregates(filters = {}) {
   // Available years
   const allRequestsForYears = await prisma.request.findMany({
     select: { createdAt: true },
-    where: { status: { in: ["REALIZED", "CLOSED"] } }
+    where: { 
+      status: { in: ["REALIZED", "CLOSED"] },
+      type: { not: "TOP_UP_PETTY_CASH" }
+    }
   });
   const years = Array.from(
     new Set(allRequestsForYears.map(r => new Date(r.createdAt).getFullYear()))
@@ -295,7 +304,8 @@ export async function getUserDetail(userId, filters = {}) {
 
   const realizedWhere = {
     requesterId: userId,
-    status: { in: ["REALIZED", "CLOSED"] }
+    status: { in: ["REALIZED", "CLOSED"] },
+    type: { not: "TOP_UP_PETTY_CASH" }
   };
   if (dateFilter) realizedWhere.createdAt = dateFilter;
 
@@ -363,7 +373,11 @@ export async function getUserDetail(userId, filters = {}) {
   }));
 
   // All requests (inc. non-realized) for stats
-  const allWhere = { requesterId: userId, status: { notIn: ["DRAFT"] } };
+  const allWhere = { 
+    requesterId: userId, 
+    status: { notIn: ["DRAFT"] },
+    type: { not: "TOP_UP_PETTY_CASH" }
+  };
   if (dateFilter) allWhere.createdAt = dateFilter;
   const allReqs = await prisma.request.findMany({ where: allWhere, select: { status: true, amount: true } });
 

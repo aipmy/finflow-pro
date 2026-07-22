@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Coins, ArrowDown, ArrowUp, Plus, TrendingUp, FileText, Upload, Pencil, Trash2 } from "lucide-react";
+import { Coins, ArrowDown, ArrowUp, Plus, TrendingUp, FileText, Upload, Pencil, Trash2, Search, ArrowUpDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,9 @@ import { apiClient } from "@/services/apiClient";
 import { useAuth } from "@/stores/authStore";
 import { toast } from "sonner";
 import { ImagePreviewModal } from "@/components/ImagePreviewModal";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from "@/components/ui/table";
 
 export default function PettyCash() {
   const { user } = useAuth();
@@ -49,6 +52,7 @@ export default function PettyCash() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [existingReceiptUrl, setExistingReceiptUrl] = useState<string>("");
+  const [isDragging, setIsDragging] = useState(false);
 
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewDetails, setPreviewDetails] = useState<any[]>([]);
@@ -56,6 +60,27 @@ export default function PettyCash() {
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [txToDelete, setTxToDelete] = useState<any>(null);
+
+  const currentYear = new Date().getFullYear();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [startDate, setStartDate] = useState(`${currentYear}-01-01`);
+  const [endDate, setEndDate] = useState(`${currentYear}-12-31`);
+
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "date", direction: "desc" });
+
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig.key !== columnKey) return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    return sortConfig.direction === "asc" ? <ArrowUp className="h-3 w-3 ml-1 inline" /> : <ArrowDown className="h-3 w-3 ml-1 inline" />;
+  };
 
   async function loadPettyCash(silent = false) {
     try {
@@ -167,10 +192,12 @@ export default function PettyCash() {
     let person = "";
     let cleanDesc = t.description || "";
 
-    const catMatch = cleanDesc.match(/^\[(.*?)\]\s*(.*)$/);
-    if (catMatch) {
-      category = catMatch[1];
-      cleanDesc = catMatch[2];
+    if (t.type === "OUT") {
+      const catMatch = cleanDesc.match(/^\[(.*?)\]\s*(.*)$/);
+      if (catMatch) {
+        category = catMatch[1];
+        cleanDesc = catMatch[2];
+      }
     }
 
     const parts = cleanDesc.split(" | ");
@@ -211,9 +238,292 @@ export default function PettyCash() {
 
   const { initial, balance, transactions } = data;
   const usagePct = initial > 0 ? Math.round((balance / initial) * 100) : 0;
-  
-  const cashIn = transactions.filter(t => t.type === "IN").reduce((acc, t) => acc + Number(t.amount), 0);
-  const cashOut = transactions.filter(t => t.type === "OUT").reduce((acc, t) => acc + Number(t.amount), 0);
+
+
+
+  // Filter transactions dynamically
+  const filteredTransactions = (transactions || []).filter((t: any) => {
+    let category = "";
+    let person = "";
+    let cleanDesc = t.description || "";
+
+    if (t.type === "OUT") {
+      const catMatch = cleanDesc.match(/^\[(.*?)\]\s*(.*)$/);
+      if (catMatch) {
+        category = catMatch[1];
+        cleanDesc = catMatch[2];
+      }
+    }
+
+    const parts = cleanDesc.split(" | ");
+    cleanDesc = parts[0] || "";
+
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      if (part.startsWith("Person: ")) {
+        person = part.replace("Person: ", "");
+      }
+    }
+
+    const displayPerson = person || t.request?.requester || "";
+
+    const matchesSearch = 
+      displayPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      cleanDesc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.refRequestId || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCategory = filterCategory === "all" || category.toLowerCase() === filterCategory.toLowerCase();
+
+    const txDateStr = (t.date || t.createdAt).split("T")[0];
+    const matchesDate = (!startDate || txDateStr >= startDate) && (!endDate || txDateStr <= endDate);
+
+    return matchesSearch && matchesCategory && matchesDate;
+  });
+
+  // Sort transactions dynamically
+  const sortedTransactions = [...filteredTransactions].sort((a: any, b: any) => {
+    let valA: any = "";
+    let valB: any = "";
+
+    // Parse category, person, and description for sorting
+    const getDetails = (t: any) => {
+      let category = "";
+      let person = "";
+      let cleanDesc = t.description || "";
+
+      if (t.type === "OUT") {
+        const catMatch = cleanDesc.match(/^\[(.*?)\]\s*(.*)$/);
+        if (catMatch) {
+          category = catMatch[1];
+          cleanDesc = catMatch[2];
+        }
+      }
+
+      const parts = cleanDesc.split(" | ");
+      cleanDesc = parts[0] || "";
+
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+        if (part.startsWith("Person: ")) {
+          person = part.replace("Person: ", "");
+        }
+      }
+
+      const displayPerson = person || t.request?.requester || "";
+
+      return { category, cleanDesc, displayPerson };
+    };
+
+    if (sortConfig.key === "date") {
+      valA = new Date(a.date || a.createdAt).getTime();
+      valB = new Date(b.date || b.createdAt).getTime();
+    } else if (sortConfig.key === "type") {
+      valA = a.type || "";
+      valB = b.type || "";
+    } else if (sortConfig.key === "category") {
+      valA = getDetails(a).category;
+      valB = getDetails(b).category;
+    } else if (sortConfig.key === "description") {
+      valA = getDetails(a).cleanDesc;
+      valB = getDetails(b).cleanDesc;
+    } else if (sortConfig.key === "person") {
+      valA = getDetails(a).displayPerson;
+      valB = getDetails(b).displayPerson;
+    } else if (sortConfig.key === "amount") {
+      valA = Number(a.amount);
+      valB = Number(b.amount);
+    }
+
+    if (typeof valA === "string" && typeof valB === "string") {
+      return sortConfig.direction === "asc" 
+        ? valA.localeCompare(valB) 
+        : valB.localeCompare(valA);
+    }
+    
+    return sortConfig.direction === "asc" ? valA - valB : valB - valA;
+  });
+
+  const renderMobileCards = () => {
+    return (
+      <div className="md:hidden space-y-2 mt-4">
+        {sortedTransactions.map((t) => {
+          let category: string | null = null;
+          let receiptUrl: string | null = null;
+          let department: string | null = null;
+          let person: string | null = null;
+          let cleanDesc = t.description || "";
+
+          if (t.type === "OUT") {
+            const catMatch = cleanDesc.match(/^\[(.*?)\]\s*(.*)$/);
+            if (catMatch) {
+              category = catMatch[1];
+              cleanDesc = catMatch[2];
+            }
+          }
+
+          const parts = cleanDesc.split(" | ");
+          cleanDesc = parts[0] || "";
+
+          for (let i = 1; i < parts.length; i++) {
+            const part = parts[i];
+            if (part.startsWith("Dept: ")) {
+              department = part.replace("Dept: ", "");
+            } else if (part.startsWith("Person: ")) {
+              person = part.replace("Person: ", "");
+            } else if (part.startsWith("Receipt: ")) {
+              receiptUrl = part.replace("Receipt: ", "");
+            }
+          }
+
+          const displayDept = department || t.request?.department;
+          const displayPerson = person || t.request?.requester;
+
+          return (
+            <Card key={t.id} className="shadow-sm border border-border/80 bg-card/60">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider ${
+                      t.type === "IN" 
+                        ? "bg-success/10 text-success border border-success/20" 
+                        : "bg-destructive/10 text-destructive border border-destructive/20"
+                    }`}>
+                      {t.type === "IN" ? "IN" : "OUT"}
+                    </span>
+                    {category && (
+                      <span className="px-2 py-0.5 rounded text-[9px] bg-primary/10 text-primary border border-primary/20 font-extrabold uppercase">
+                        {category}
+                      </span>
+                    )}
+                    {displayDept && (
+                      <span className="font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[8px] uppercase border border-primary/20">
+                        {displayDept}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span className={`font-black text-sm tracking-tight ${t.type === "IN" ? "text-success" : "text-destructive"}`}>
+                      {t.type === "IN" ? "+" : "-"}{formatRupiah(Number(t.amount))}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="font-semibold text-xs text-foreground mb-1 line-clamp-2">{cleanDesc}</div>
+
+                {t.request && t.request.items && t.request.items.length > 0 && (
+                  <div className="text-[10px] text-muted-foreground bg-muted/40 p-2 rounded border border-border/20 italic mt-2 mb-1.5 line-clamp-2">
+                    <span className="font-semibold text-foreground not-italic">Rincian:</span>{" "}
+                    {t.request.items.map((it: any) => `${it.name} (${it.qty} ${it.unit || 'unit'})`).join(", ")}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/50 text-[10px] text-muted-foreground">
+                  <div>
+                    <span className="font-medium">PJ:</span> {displayPerson || "-"} • {formatDate(t.date || t.createdAt)}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {t.refRequestId && t.refRequestId !== "-" && (
+                      <span className="font-mono bg-muted border border-border/80 px-1.5 py-0.2 rounded text-[8px]">Ref: {t.refRequestId}</span>
+                    )}
+                    {t.request && (
+                      <Link to={`/requests/${t.request.id}`} className="text-primary hover:underline font-bold">
+                        Detail →
+                      </Link>
+                    )}
+                    {receiptUrl && (
+                      <Button 
+                        size="icon" 
+                        variant="ghost"
+                        className="h-6 w-6 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          if (receiptUrl.toLowerCase().endsWith(".pdf")) {
+                            window.open(receiptUrl, "_blank");
+                          } else {
+                            setPreviewUrl(receiptUrl);
+                            setPreviewDetails([
+                              { label: "Jenis", value: t.type === "IN" ? "Kas Masuk" : "Kas Keluar" },
+                              { label: "Tanggal", value: formatDate(t.date || t.createdAt) },
+                              { label: "Keterangan", value: cleanDesc },
+                              { label: "Nominal", value: formatRupiah(Number(t.amount)) },
+                              { label: "Departemen", value: displayDept || "-" },
+                              { label: "Penanggung Jawab", value: displayPerson || "-" },
+                            ]);
+                            setIsPreviewOpen(true);
+                          }
+                        }}
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {(!t.refRequestId || t.refRequestId === "-") && (
+                      <div className="flex items-center gap-0.5 border-l border-border/80 pl-1 ml-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-muted-foreground"
+                          onClick={() => handleEditClick(t)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        {isAdmin && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => { setTxToDelete(t); setIsDeleteDialogOpen(true); }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {sortedTransactions.length === 0 && (
+          <div className="p-8 text-center text-xs text-muted-foreground italic bg-card/30 rounded-lg border border-dashed border-border">
+            Tidak ada transaksi kas kecil yang cocok dengan filter
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const cashIn = filteredTransactions.filter(t => t.type === "IN").reduce((acc, t) => acc + Number(t.amount), 0);
+  const cashOut = filteredTransactions.filter(t => t.type === "OUT").reduce((acc, t) => acc + Number(t.amount), 0);
+
+  // Group filtered transactions by month (YYYY-MM)
+  const monthlySummaries = Object.values(
+    filteredTransactions.reduce((acc: any, t: any) => {
+      const date = new Date(t.date || t.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth(); // 0-11
+      const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+      const monthName = date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+
+      if (!acc[monthKey]) {
+        acc[monthKey] = {
+          key: monthKey,
+          name: monthName,
+          in: 0,
+          out: 0,
+        };
+      }
+
+      const amt = Number(t.amount);
+      if (t.type === "IN") {
+        acc[monthKey].in += amt;
+      } else {
+        acc[monthKey].out += amt;
+      }
+
+      return acc;
+    }, {})
+  ).sort((a: any, b: any) => b.key.localeCompare(a.key)) as any[];
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-[1400px] mx-auto">
@@ -240,7 +550,19 @@ export default function PettyCash() {
               <Plus className="h-4 w-4 mr-1.5" />Transaksi
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent 
+            className="overflow-hidden"
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                setFile(e.dataTransfer.files[0]);
+                toast.success(`File ${e.dataTransfer.files[0].name} dipilih`);
+              }
+            }}
+          >
             <DialogHeader>
               <DialogTitle>{editingTxId ? "Edit Transaksi Manual" : "Catat Transaksi Manual"}</DialogTitle>
               <DialogDescription>
@@ -337,20 +659,57 @@ export default function PettyCash() {
                 />
               </div>
               <div>
-                <Label htmlFor="receipt">Bukti Transaksi (Opsional)</Label>
-                <Input 
-                  id="receipt" 
-                  type="file" 
-                  accept="image/*,.pdf" 
-                  onChange={e => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      setFile(e.target.files[0]);
-                    } else {
-                      setFile(null);
-                    }
-                  }} 
-                  className="mt-1.5 cursor-pointer file:text-primary file:font-semibold"
-                />
+                <Label>Bukti Transaksi (Opsional)</Label>
+                <div 
+                  className="mt-1.5 border-2 border-dashed border-border hover:border-primary/50 bg-background/50 rounded-md p-4 flex flex-col items-center justify-center transition-colors cursor-pointer"
+                  onClick={() => document.getElementById("receipt-upload")?.click()}
+                >
+                  <input 
+                    id="receipt-upload" 
+                    type="file" 
+                    accept="image/*,.pdf" 
+                    className="hidden"
+                    onChange={e => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setFile(e.target.files[0]);
+                      }
+                    }} 
+                  />
+                  {file ? (
+                    <div className="flex items-center gap-3 w-full max-w-full">
+                      <FileText className="h-8 w-8 text-primary shrink-0" />
+                      <div className="flex-1 truncate">
+                        <p className="text-sm font-semibold truncate">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-destructive h-8 w-8 shrink-0 hover:bg-destructive/10" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFile(null);
+                          const input = document.getElementById("receipt-upload") as HTMLInputElement;
+                          if (input) input.value = "";
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : existingReceiptUrl ? (
+                    <div className="text-center w-full">
+                      <p className="text-sm font-medium text-foreground">File sebelumnya telah tersimpan</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Klik atau drop file baru untuk mengganti</p>
+                    </div>
+                  ) : (
+                    <div className="text-center w-full pointer-events-none">
+                      <Upload className="mx-auto h-6 w-6 text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium text-foreground">Klik atau drag & drop file ke sini</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Atau drop langsung di mana saja pada popup ini</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -358,6 +717,15 @@ export default function PettyCash() {
                 {isSubmitting ? "Memproses..." : "Simpan Transaksi"}
               </Button>
             </DialogFooter>
+            {isDragging && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm border-2 border-dashed border-primary m-1 rounded-lg pointer-events-none">
+                <div className="text-center">
+                  <Upload className="mx-auto h-12 w-12 text-primary animate-bounce mb-2" />
+                  <p className="font-bold text-primary text-lg">Lepaskan File di Sini</p>
+                  <p className="text-sm text-muted-foreground mt-1">File akan dijadikan bukti transaksi</p>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -413,167 +781,354 @@ export default function PettyCash() {
             </div>
             <div>
               <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Transaksi</div>
-              <div className="text-lg font-bold text-foreground mt-0.5">{transactions.length}</div>
+              <div className="text-lg font-bold text-foreground mt-0.5">{filteredTransactions.length}</div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border border-border/60 bg-card/40 backdrop-blur-md shadow-elegant rounded-xl">
-        <CardHeader className="border-b border-border/50 pb-4">
-          <CardTitle className="text-base font-bold tracking-tight">Riwayat Transaksi Kas Kecil</CardTitle>
-        </CardHeader>
-        <CardContent className="p-5 space-y-3.5">
-          {transactions.map(t => {
-            let category: string | null = null;
-            let receiptUrl: string | null = null;
-            let department: string | null = null;
-            let person: string | null = null;
-            let cleanDesc = t.description || "";
+      <Card className="border border-border/60 bg-card/50 backdrop-blur-md shadow-elegant rounded-xl">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Cari penanggung jawab atau keterangan..." 
+                className="pl-9 bg-background/50 border-border/80 focus:border-primary/50" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[160px] bg-background/50 border-border/80">
+                  <SelectValue placeholder="Semua Kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kategori</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            const catMatch = cleanDesc.match(/^\[(.*?)\]\s*(.*)$/);
-            if (catMatch) {
-              category = catMatch[1];
-              cleanDesc = catMatch[2];
-            }
-
-            const parts = cleanDesc.split(" | ");
-            cleanDesc = parts[0] || "";
-
-            for (let i = 1; i < parts.length; i++) {
-              const part = parts[i];
-              if (part.startsWith("Dept: ")) {
-                department = part.replace("Dept: ", "");
-              } else if (part.startsWith("Person: ")) {
-                person = part.replace("Person: ", "");
-              } else if (part.startsWith("Receipt: ")) {
-                receiptUrl = part.replace("Receipt: ", "");
-              }
-            }
-
-            const displayDept = department || t.request?.department;
-            const displayPerson = person || t.request?.requester;
-
-            return (
-              <div key={t.id} className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-border/50 bg-card/60 hover:bg-muted/30 transition-all duration-150 group">
-                <div className="flex items-start gap-3.5 min-w-0">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border ${
-                    t.type === "IN" 
-                      ? "bg-success/10 text-success border-success/20" 
-                      : "bg-destructive/10 text-destructive border-destructive/20"
-                  }`}>
-                    {t.type === "IN" ? <ArrowDown className="h-4 w-4 stroke-[2.5]" /> : <ArrowUp className="h-4 w-4 stroke-[2.5]" />}
-                  </div>
-                  
-                  <div className="min-w-0 space-y-1">
-                    <div className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5 flex-wrap">
-                      {category && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 font-bold">
-                          {category}
-                        </span>
-                      )}
-                      <span>{cleanDesc}</span>
-                      {receiptUrl && (
-                        <button 
-                          onClick={() => {
-                            if (receiptUrl.toLowerCase().endsWith(".pdf")) {
-                              window.open(receiptUrl, "_blank");
-                            } else {
-                              setPreviewUrl(receiptUrl);
-                              setPreviewDetails([
-                                { label: "Jenis Transaksi", value: t.type === "IN" ? "Kas Masuk" : "Kas Keluar" },
-                                { label: "Tanggal", value: formatDate(t.date || t.createdAt) },
-                                { label: "Keterangan", value: cleanDesc },
-                                { label: "Nominal", value: formatRupiah(Number(t.amount)) },
-                                { label: "Departemen", value: displayDept || "-" },
-                                { label: "Penanggung Jawab", value: displayPerson || "-" },
-                              ]);
-                              setIsPreviewOpen(true);
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary-glow font-bold bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded transition-colors"
-                        >
-                          <FileText className="h-3 w-3" />
-                          Nota
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 font-medium">
-                      <span>{formatDate(t.date || t.createdAt)}</span>
-                      {displayDept && (
-                        <>
-                          <span className="text-border">•</span>
-                          <span className="font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[10px]">{displayDept}</span>
-                        </>
-                      )}
-                      {displayPerson && (
-                        <>
-                          <span className="text-border">•</span>
-                          <span>Oleh: <strong className="text-foreground font-semibold">{displayPerson}</strong></span>
-                        </>
-                      )}
-                      {t.refRequestId && t.refRequestId !== "-" && (
-                        <>
-                          <span className="text-border">•</span>
-                          <span className="font-mono bg-muted border border-border/80 px-1.5 py-0.2 rounded text-[10px]">Ref: {t.refRequestId}</span>
-                        </>
-                      )}
-                      {t.request && (
-                        <>
-                          <span className="text-border">•</span>
-                          <Link to={`/requests/${t.request.id}`} className="text-primary hover:underline font-bold">
-                            Detail Pengajuan →
-                          </Link>
-                        </>
-                      )}
-                    </div>
-                    
-                    {t.request && t.request.items && t.request.items.length > 0 && (
-                      <div className="mt-1.5 text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-lg border border-border/40 max-w-xl italic">
-                        <span className="font-semibold text-foreground not-italic">Rincian:</span>{" "}
-                        {t.request.items.map((it: any) => `${it.name} (${it.qty} ${it.unit || 'unit'} @ ${formatRupiah(it.price)})`).join(", ")}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between sm:justify-end gap-3.5 pl-12 sm:pl-0 border-t border-dashed border-border/50 sm:border-none pt-2.5 sm:pt-0">
-                  <div className={`font-black text-base tracking-tight whitespace-nowrap ${t.type === "IN" ? "text-success" : "text-destructive"}`}>
-                    {t.type === "IN" ? "+" : "-"}{formatRupiah(Number(t.amount))}
-                  </div>
-                  
-                  {(!t.refRequestId || t.refRequestId === "-") && (
-                    <div className="flex items-center gap-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
-                        onClick={() => handleEditClick(t)}
-                        title="Edit Transaksi"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {isAdmin && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20"
-                          onClick={() => { setTxToDelete(t); setIsDeleteDialogOpen(true); }}
-                          title="Hapus Transaksi"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Dari</span>
+                <Input 
+                  type="date" 
+                  className="bg-background/50 border-border/80 w-[140px] px-2" 
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                />
               </div>
-            );
-          })}
-          {transactions.length === 0 && <div className="text-center py-12 text-sm text-muted-foreground italic">Belum ada riwayat transaksi kas kecil</div>}
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Sampai</span>
+                <Input 
+                  type="date" 
+                  className="bg-background/50 border-border/80 w-[140px] px-2" 
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                />
+              </div>
+
+              {(searchQuery || filterCategory !== "all" || startDate !== `${currentYear}-01-01` || endDate !== `${currentYear}-12-31`) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterCategory("all");
+                    setStartDate(`${currentYear}-01-01`);
+                    setEndDate(`${currentYear}-12-31`);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground font-semibold"
+                >
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div className="xl:col-span-3">
+          {/* Desktop Table View */}
+          <Card className="border border-border/60 bg-card/40 backdrop-blur-md shadow-elegant rounded-xl overflow-hidden hidden md:block">
+            <CardHeader className="border-b border-border/50 pb-4">
+              <CardTitle className="text-base font-bold tracking-tight">Riwayat Transaksi Kas Kecil</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="w-12 text-center text-xs font-bold uppercase tracking-wider hidden sm:table-cell">No</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider w-[120px] md:w-[140px] cursor-pointer select-none" onClick={() => requestSort("date")}>
+                        Tanggal <SortIcon columnKey="date" />
+                      </TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider w-[80px] md:w-[100px] cursor-pointer select-none hidden sm:table-cell" onClick={() => requestSort("type")}>
+                        Tipe <SortIcon columnKey="type" />
+                      </TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider w-[120px] md:w-[140px] cursor-pointer select-none hidden md:table-cell" onClick={() => requestSort("category")}>
+                        Kategori <SortIcon columnKey="category" />
+                      </TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider cursor-pointer select-none" onClick={() => requestSort("description")}>
+                        Keterangan <SortIcon columnKey="description" />
+                      </TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider w-[140px] md:w-[180px] cursor-pointer select-none hidden lg:table-cell" onClick={() => requestSort("person")}>
+                        Penanggung Jawab <SortIcon columnKey="person" />
+                      </TableHead>
+                      <TableHead className="text-right text-xs font-bold uppercase tracking-wider w-[120px] md:w-[160px] cursor-pointer select-none" onClick={() => requestSort("amount")}>
+                        Nominal <SortIcon columnKey="amount" />
+                      </TableHead>
+                      <TableHead className="text-center text-xs font-bold uppercase tracking-wider w-[60px] md:w-[80px]">Nota</TableHead>
+                      <TableHead className="text-center text-xs font-bold uppercase tracking-wider w-[80px] md:w-[100px]">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedTransactions.map((t, idx) => {
+                      let category: string | null = null;
+                      let receiptUrl: string | null = null;
+                      let department: string | null = null;
+                      let person: string | null = null;
+                      let cleanDesc = t.description || "";
+
+                      if (t.type === "OUT") {
+                        const catMatch = cleanDesc.match(/^\[(.*?)\]\s*(.*)$/);
+                        if (catMatch) {
+                          category = catMatch[1];
+                          cleanDesc = catMatch[2];
+                        }
+                      }
+
+                      const parts = cleanDesc.split(" | ");
+                      cleanDesc = parts[0] || "";
+
+                      for (let i = 1; i < parts.length; i++) {
+                        const part = parts[i];
+                        if (part.startsWith("Dept: ")) {
+                          department = part.replace("Dept: ", "");
+                        } else if (part.startsWith("Person: ")) {
+                          person = part.replace("Person: ", "");
+                        } else if (part.startsWith("Receipt: ")) {
+                          receiptUrl = part.replace("Receipt: ", "");
+                        }
+                      }
+
+                      const displayDept = department || t.request?.department;
+                      const displayPerson = person || t.request?.requester;
+
+                      return (
+                        <TableRow key={t.id} className="hover:bg-muted/20 transition-colors">
+                          <TableCell className="text-center font-medium text-xs text-muted-foreground hidden sm:table-cell">{idx + 1}</TableCell>
+                          <TableCell className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                            {formatDate(t.date || t.createdAt)}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider ${
+                              t.type === "IN" 
+                                ? "bg-success/10 text-success border border-success/20" 
+                                : "bg-destructive/10 text-destructive border border-destructive/20"
+                            }`}>
+                              {t.type === "IN" ? "IN" : "OUT"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {category ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 font-extrabold uppercase whitespace-nowrap">
+                                {category}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-[10px] italic">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1.5 min-w-[200px] max-w-[280px] md:max-w-sm lg:max-w-none">
+                              {/* Mobile-only tags for hidden columns */}
+                              <div className="flex md:hidden items-center gap-1.5 flex-wrap">
+                                <span className={`sm:hidden px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider ${t.type === "IN" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+                                  {t.type === "IN" ? "IN" : "OUT"}
+                                </span>
+                                {category && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-primary/10 text-primary font-bold">
+                                    {category}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="text-xs font-semibold text-foreground flex items-center gap-1.5 flex-wrap">
+                                <span className="line-clamp-2" title={cleanDesc}>{cleanDesc}</span>
+                                {displayDept && (
+                                  <span className="font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[9px] uppercase border border-primary/20">
+                                    {displayDept}
+                                  </span>
+                                )}
+                                {t.refRequestId && t.refRequestId !== "-" && (
+                                  <span className="font-mono bg-muted border border-border/80 px-1.5 py-0.2 rounded text-[9px] whitespace-nowrap">Ref: {t.refRequestId}</span>
+                                )}
+                                {t.request && (
+                                  <Link to={`/requests/${t.request.id}`} className="text-primary hover:underline font-bold text-[10px] whitespace-nowrap">
+                                    Detail →
+                                  </Link>
+                                )}
+                              </div>
+                              
+                              {/* Mobile-only person display */}
+                              <div className="lg:hidden text-[10px] text-muted-foreground mt-0.5">
+                                <span className="font-medium">PJ:</span> {displayPerson || <span className="italic">-</span>}
+                              </div>
+
+                              {t.request && t.request.items && t.request.items.length > 0 && (
+                                <div 
+                                  className="text-[10px] text-muted-foreground bg-muted/30 p-1.5 rounded border border-border/20 italic line-clamp-2" 
+                                  title={t.request.items.map((it: any) => `${it.name} (${it.qty} ${it.unit || 'unit'} @ ${formatRupiah(it.price)})`).join(", ")}
+                                >
+                                  <span className="font-semibold text-foreground not-italic">Rincian:</span>{" "}
+                                  {t.request.items.map((it: any) => `${it.name} (${it.qty} ${it.unit || 'unit'})`).join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs font-semibold text-foreground hidden lg:table-cell">
+                            {displayPerson || <span className="text-muted-foreground text-xs italic">-</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className={`font-black text-sm tracking-tight whitespace-nowrap ${t.type === "IN" ? "text-success" : "text-destructive"}`}>
+                              {t.type === "IN" ? "+" : "-"}{formatRupiah(Number(t.amount))}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {receiptUrl ? (
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                className="h-8 w-8 text-primary hover:text-primary-glow hover:bg-primary/10 border border-transparent hover:border-primary/20"
+                                onClick={() => {
+                                  if (receiptUrl.toLowerCase().endsWith(".pdf")) {
+                                    window.open(receiptUrl, "_blank");
+                                  } else {
+                                    setPreviewUrl(receiptUrl);
+                                    setPreviewDetails([
+                                      { label: "Jenis Transaksi", value: t.type === "IN" ? "Kas Masuk" : "Kas Keluar" },
+                                      { label: "Tanggal", value: formatDate(t.date || t.createdAt) },
+                                      { label: "Keterangan", value: cleanDesc },
+                                      { label: "Nominal", value: formatRupiah(Number(t.amount)) },
+                                      { label: "Departemen", value: displayDept || "-" },
+                                      { label: "Penanggung Jawab", value: displayPerson || "-" },
+                                    ]);
+                                    setIsPreviewOpen(true);
+                                  }
+                                }}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-[10px] italic">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {(!t.refRequestId || t.refRequestId === "-") ? (
+                              <div className="flex items-center justify-center gap-0.5">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7 text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
+                                  onClick={() => handleEditClick(t)}
+                                  title="Edit Transaksi"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                {isAdmin && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20"
+                                    onClick={() => { setTxToDelete(t); setIsDeleteDialogOpen(true); }}
+                                    title="Hapus Transaksi"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-[10px] italic">Sistem</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {sortedTransactions.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-12 text-sm text-muted-foreground italic">
+                          Tidak ada transaksi kas kecil yang cocok dengan filter
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Mobile Cards View */}
+          <div className="md:hidden">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h3 className="text-sm font-black tracking-tight text-muted-foreground uppercase">Riwayat Transaksi</h3>
+            </div>
+            {renderMobileCards()}
+          </div>
+        </div>
+
+        <div className="xl:col-span-1">
+          <Card className="border border-border/60 bg-card/40 backdrop-blur-md shadow-elegant rounded-xl overflow-hidden">
+            <CardHeader className="border-b border-border/50 pb-3.5">
+              <CardTitle className="text-sm font-bold tracking-tight">Rekap Saldo Bulanan</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider">Bulan</TableHead>
+                      <TableHead className="text-right text-xs font-bold uppercase tracking-wider">In / Out</TableHead>
+                      <TableHead className="text-right text-xs font-bold uppercase tracking-wider">Selisih</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlySummaries.map((m: any) => {
+                      const diff = m.in - m.out;
+                      return (
+                        <TableRow key={m.key} className="hover:bg-muted/10 transition-colors">
+                          <TableCell className="text-xs font-bold text-foreground py-3">{m.name}</TableCell>
+                          <TableCell className="text-right py-3">
+                            <div className="text-[10px] text-success font-bold">+{formatRupiah(m.in)}</div>
+                            <div className="text-[10px] text-destructive font-bold">-{formatRupiah(m.out)}</div>
+                          </TableCell>
+                          <TableCell className="text-right py-3">
+                            <span className={`text-xs font-black tracking-tight ${diff >= 0 ? "text-success" : "text-destructive"}`}>
+                              {diff >= 0 ? "+" : ""}{formatRupiah(diff)}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {monthlySummaries.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-xs text-muted-foreground italic">
+                          Tidak ada rekap bulanan
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

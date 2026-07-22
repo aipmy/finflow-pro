@@ -120,25 +120,27 @@ export default function Dashboard() {
     .filter((t: any) => isSelectedPeriod(t.createdAt))
     .reduce((acc: number, t: any) => acc + Number(t.amount), 0);
 
-  const total = sumBy(requests, r => r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount));
-  const approved = sumBy(requests, r => ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "WAITING_VERIFICATION", "CLOSED"].includes(r.status) && isSelectedPeriod(r.createdAt), r => Number(r.amount));
-  const rejected = sumBy(requests, r => r.status === "REJECTED" && isSelectedPeriod(r.createdAt), r => Number(r.amount));
+  const filteredRequests = requests.filter(r => r.type !== "TOP_UP_PETTY_CASH");
+
+  const total = sumBy(filteredRequests, r => r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount));
+  const approved = sumBy(filteredRequests, r => ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "WAITING_VERIFICATION", "CLOSED"].includes(r.status) && isSelectedPeriod(r.createdAt), r => Number(r.amount));
+  const rejected = sumBy(filteredRequests, r => r.status === "REJECTED" && isSelectedPeriod(r.createdAt), r => Number(r.amount));
   
   // Realized requests filter
-  const realized = sumBy(requests, r => !!r.financeRealization && isSelectedPeriod(r.financeRealization.createdAt), r => Number(r.financeRealization?.realizedAmount || 0)) + manualRealized;
+  const realized = sumBy(filteredRequests, r => !!r.financeRealization && isSelectedPeriod(r.financeRealization.createdAt), r => Number(r.financeRealization?.realizedAmount || 0)) + manualRealized;
   
-  const outstanding = approved - sumBy(requests, r => !!r.financeRealization && isSelectedPeriod(r.financeRealization.createdAt), r => Number(r.financeRealization?.realizedAmount || 0));
-  const pending = requests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status) && isSelectedPeriod(r.createdAt)).length;
+  const outstanding = approved - sumBy(filteredRequests, r => !!r.financeRealization && isSelectedPeriod(r.financeRealization.createdAt), r => Number(r.financeRealization?.realizedAmount || 0));
+  const pending = filteredRequests.filter(r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status) && isSelectedPeriod(r.createdAt)).length;
   
   // Total nominal Rupiah pending approval
-  const pendingAmount = sumBy(requests, r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status) && isSelectedPeriod(r.createdAt), r => Number(r.amount));
+  const pendingAmount = sumBy(filteredRequests, r => ["SUBMITTED", "APPROVED_BY_SUPERVISOR"].includes(r.status) && isSelectedPeriod(r.createdAt), r => Number(r.amount));
   
   // New counts for Dashboard metrics
-  const newSubmissionsCount = requests.filter(r => r.status !== "DRAFT" && isSelectedPeriod(r.createdAt)).length;
-  const needRevisionCount = requests.filter(r => r.status === "NEED_REVISION" && isSelectedPeriod(r.createdAt)).length;
+  const newSubmissionsCount = filteredRequests.filter(r => r.status !== "DRAFT" && isSelectedPeriod(r.createdAt)).length;
+  const needRevisionCount = filteredRequests.filter(r => r.status === "NEED_REVISION" && isSelectedPeriod(r.createdAt)).length;
 
   // Only count approved/realized requests in the selected period for monthly expenses based on realization/approval date
-  const totalExpensesMonth = sumBy(requests, r => {
+  const totalExpensesMonth = sumBy(filteredRequests, r => {
     if (!["REALIZED", "CLOSED"].includes(r.status)) return false;
     if (r.financeRealization) {
       return isSelectedPeriod(r.financeRealization.createdAt);
@@ -148,7 +150,7 @@ export default function Dashboard() {
 
   const byCategory = categories.map(c => {
     let sum = 0;
-    requests.forEach(r => {
+    filteredRequests.forEach(r => {
       // Only include realized/closed requests in category distribution
       if (!["REALIZED", "CLOSED"].includes(r.status)) return;
       const realizedDate = r.financeRealization ? r.financeRealization.createdAt : r.updatedAt;
@@ -182,9 +184,11 @@ export default function Dashboard() {
     byCategory.push({ name: "Tidak Terkategori", value: uncategorizedManualSum });
   }
 
+  byCategory.sort((a, b) => b.value - a.value);
+
   const byDept = departments.map(d => ({
     name: d.name,
-    value: sumBy(requests, r => r.departmentId === d.id && r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount)),
+    value: sumBy(filteredRequests, r => r.departmentId === d.id && r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount)),
   })).filter(x => x.value > 0);
 
   if (manualRealized > 0) {
@@ -193,7 +197,7 @@ export default function Dashboard() {
 
   const bySite = sites.map(s => ({
     name: s.name.replace("Site ", ""),
-    value: sumBy(requests, r => r.siteId === s.id && r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount)),
+    value: sumBy(filteredRequests, r => r.siteId === s.id && r.status !== "DRAFT" && isSelectedPeriod(r.createdAt), r => Number(r.amount)),
   })).filter(x => x.value > 0);
 
   if (manualRealized > 0) {
@@ -260,7 +264,7 @@ export default function Dashboard() {
         const mName = months[mIndex];
         const y = d.getFullYear();
         
-        const sum = requests
+        const sum = filteredRequests
           .filter(r => {
             const rDate = new Date(r.createdAt);
             return rDate.getMonth() === mIndex && rDate.getFullYear() === y && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status);
@@ -278,7 +282,7 @@ export default function Dashboard() {
       }
     } else if (trendPeriod === "1_month") {
       for (let w = 1; w <= 4; w++) {
-        const sum = requests
+        const sum = filteredRequests
           .filter(r => {
             const rDate = new Date(r.createdAt);
             if (rDate.getFullYear() !== year || rDate.getMonth() !== targetMonth) return false;
@@ -308,7 +312,7 @@ export default function Dashboard() {
     } else {
       const targetYear = parseInt(trendPeriod, 10) || year;
       for (let m = 0; m < 12; m++) {
-        const sum = requests
+        const sum = filteredRequests
           .filter(r => {
             const rDate = new Date(r.createdAt);
             return rDate.getFullYear() === targetYear && rDate.getMonth() === m && ["APPROVED_BY_FINANCE", "PURCHASED", "REALIZED", "CLOSED"].includes(r.status);

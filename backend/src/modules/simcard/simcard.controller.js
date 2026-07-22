@@ -182,7 +182,8 @@ export async function updateScraperConfig(req, res, next) {
 // GET /api/simcard/overview
 export async function getSimcardOverview(req, res, next) {
   try {
-    const currentPeriode = getIndonesianMonthYear();
+    const trendFilter = req.query.trendFilter || "1year";
+    const currentPeriode = req.query.periode || getIndonesianMonthYear();
 
     // Get all simcards with current usage
     const simcards = await prisma.simcard.findMany({
@@ -248,34 +249,121 @@ export async function getSimcardOverview(req, res, next) {
     // Per-group breakdown
     const perGrup = Object.values(grupMap).sort((a, b) => b.totalUsed - a.totalUsed);
 
-    // Monthly trends (all periods aggregated)
-    const allUsages = await prisma.simcardUsage.findMany({
-      select: {
-        periode: true,
-        kuotaUsed: true,
-        kuotaTotal: true,
-        scrapedAt: true
-      }
-    });
+    // Monthly vs Weekly trend
+    let monthlyTrend = [];
 
-    // Aggregate by periode
-    const periodeMap = {};
-    for (const u of allUsages) {
-      if (!periodeMap[u.periode]) {
-        periodeMap[u.periode] = { periode: u.periode, totalUsed: 0, totalAllocated: 0, count: 0, latestScrapedAt: u.scrapedAt };
+    if (trendFilter === "1year") {
+      // Generate last 12 months
+      const indonesianMonths = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      const currentDate = new Date();
+      const last12Months = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        last12Months.push(`${indonesianMonths[d.getMonth()]} ${d.getFullYear()}`);
       }
-      periodeMap[u.periode].totalUsed += Number(u.kuotaUsed);
-      periodeMap[u.periode].totalAllocated += Number(u.kuotaTotal);
-      periodeMap[u.periode].count += 1;
-      if (new Date(u.scrapedAt) > new Date(periodeMap[u.periode].latestScrapedAt)) {
-        periodeMap[u.periode].latestScrapedAt = u.scrapedAt;
+
+      // Initialize periodeMap with 0 for all 12 months
+      const periodeMap = {};
+      last12Months.forEach(p => {
+        periodeMap[p] = { periode: p, totalUsed: 0, totalAllocated: 0, count: 0 };
+      });
+
+      // Monthly trends (all periods aggregated)
+      const allUsages = await prisma.simcardUsage.findMany({
+        where: {
+          periode: { in: last12Months }
+        },
+        select: {
+          periode: true,
+          kuotaUsed: true,
+          kuotaTotal: true
+        }
+      });
+
+      // Aggregate by periode
+      for (const u of allUsages) {
+        if (periodeMap[u.periode]) {
+          periodeMap[u.periode].totalUsed += Number(u.kuotaUsed);
+          periodeMap[u.periode].totalAllocated += Number(u.kuotaTotal);
+          periodeMap[u.periode].count += 1;
+        }
       }
+
+      // Map back to ordered array
+      monthlyTrend = last12Months.map(p => periodeMap[p]);
+    } else if (trendFilter.startsWith("daily_")) {
+      // Daily trends for specific month
+      const monthMap = { "Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12" };
+      const rawMonthYear = trendFilter.substring(6); // e.g. "Juli 2026"
+      const parts = rawMonthYear.split(" ");
+      const mName = parts[0];
+      const yStr = parts[1];
+      const mStr = monthMap[mName] || "01";
+      const prefix = `${yStr}-${mStr}`;
+      
+      const logs = await prisma.simcardDailyLog.findMany({
+        where: { date: { startsWith: prefix } },
+        select: { simcardId: true, date: true, kuotaUsed: true, kuotaTotal: true }
+      });
+      
+      const dateMap = {};
+      for (const log of logs) {
+        if (!dateMap[log.date]) {
+          const dayPart = log.date.split("-")[2];
+          const label = `${dayPart} ${mName.substring(0, 3)}`;
+          dateMap[log.date] = { periode: label, totalUsed: 0, totalAllocated: 0, count: 0, rawDate: log.date };
+        }
+        dateMap[log.date].totalUsed += Number(log.kuotaUsed);
+        dateMap[log.date].totalAllocated += Number(log.kuotaTotal);
+        dateMap[log.date].count += 1;
+      }
+      
+      monthlyTrend = Object.values(dateMap).sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+    } else {
+      // Weekly trends for specific month
+      const monthMap = { "Januari": "01", "Februari": "02", "Maret": "03", "April": "04", "Mei": "05", "Juni": "06", "Juli": "07", "Agustus": "08", "September": "09", "Oktober": "10", "November": "11", "Desember": "12" };
+      const parts = trendFilter.split(" ");
+      const mName = parts[0];
+      const yStr = parts[1];
+      const mStr = monthMap[mName] || "01";
+      const prefix = `${yStr}-${mStr}`;
+      
+      const logs = await prisma.simcardDailyLog.findMany({
+        where: { date: { startsWith: prefix } },
+        select: { simcardId: true, date: true, kuotaUsed: true, kuotaTotal: true }
+      });
+      
+      const maxPerSimWeek = {}; 
+      for (const log of logs) {
+        const day = parseInt(log.date.split("-")[2], 10);
+        let week = "Minggu 4";
+        if (day <= 7) week = "Minggu 1";
+        else if (day <= 14) week = "Minggu 2";
+        else if (day <= 21) week = "Minggu 3";
+        
+        const key = `${log.simcardId}_${week}`;
+        const used = Number(log.kuotaUsed);
+        const total = Number(log.kuotaTotal);
+        if (!maxPerSimWeek[key] || used > maxPerSimWeek[key].used) {
+          maxPerSimWeek[key] = { week, used, total };
+        }
+      }
+
+      const weekMap = {
+        "Minggu 1": { periode: "Minggu 1", totalUsed: 0, totalAllocated: 0, count: 0 },
+        "Minggu 2": { periode: "Minggu 2", totalUsed: 0, totalAllocated: 0, count: 0 },
+        "Minggu 3": { periode: "Minggu 3", totalUsed: 0, totalAllocated: 0, count: 0 },
+        "Minggu 4": { periode: "Minggu 4", totalUsed: 0, totalAllocated: 0, count: 0 }
+      };
+
+      for (const val of Object.values(maxPerSimWeek)) {
+        weekMap[val.week].totalUsed += val.used;
+        weekMap[val.week].totalAllocated += val.total;
+        weekMap[val.week].count += 1;
+      }
+      
+      monthlyTrend = Object.values(weekMap).filter(w => w.count > 0);
     }
-
-    // Sort by scrapedAt
-    const monthlyTrend = Object.values(periodeMap).sort(
-      (a, b) => new Date(a.latestScrapedAt).getTime() - new Date(b.latestScrapedAt).getTime()
-    );
 
     res.json({
       success: true,

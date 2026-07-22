@@ -354,6 +354,12 @@ export const requestRepository = {
     if (!request) return null;
 
     await prisma.$transaction(async (tx) => {
+      if (request.code) {
+        await tx.pettyCashTransaction.deleteMany({
+          where: { refRequestId: request.code }
+        });
+      }
+
       await tx.request.delete({ where: { id } });
       await tx.auditLog.create({
         data: {

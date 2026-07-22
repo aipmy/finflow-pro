@@ -495,8 +495,12 @@ export const apiClient = {
     getHistory: async (msisdn: string) => {
       return request(`/simcard/usage/${msisdn}/history`);
     },
-    getOverview: async () => {
-      return request("/simcard/overview");
+    getOverview: async (trendFilter?: string, periode?: string) => {
+      const params = new URLSearchParams();
+      if (trendFilter) params.append("trendFilter", trendFilter);
+      if (periode) params.append("periode", periode);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      return request(`/simcard/overview${query}`);
     },
     getScraperStatus: async () => {
       return request("/simcard/scraper-status");
